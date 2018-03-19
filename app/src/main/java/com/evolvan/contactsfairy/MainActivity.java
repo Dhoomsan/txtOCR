@@ -68,8 +68,7 @@ public class MainActivity extends AppCompatActivity {
         mListView.setOnItemClickListener(new AdapterView.OnItemClickListener() {
 
             @Override
-            public void onItemClick(AdapterView<?> parent, View view,
-                                    int position, long id) {
+            public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
                 //TODO Do whatever you want with the list data
                 Toast.makeText(getApplicationContext(),contactList.get(position), Toast.LENGTH_SHORT).show();
             }
