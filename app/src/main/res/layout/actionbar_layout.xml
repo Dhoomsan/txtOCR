@@ -1,0 +1,26 @@
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:id="@+id/addCamera_action_bar"
+    android:layout_alignParentTop="true"
+    android:layout_width="match_parent"
+    android:layout_height="@dimen/padding55"
+    android:background="@color/colorPrimary"
+    android:orientation="horizontal">
+        <ImageView
+            android:id="@+id/img_left_arrow"
+            android:layout_width="@dimen/padding30"
+            android:layout_height="@dimen/padding20"
+            android:layout_gravity="center"
+            android:layout_marginLeft="@dimen/padding10"
+            android:src="@drawable/img_left_arrow"/>
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center"
+            android:text="Save"
+            android:textSize="@dimen/padding20"
+            android:textAlignment="viewEnd"
+            android:textColor="@android:color/white"
+            android:paddingRight="@dimen/padding10"
+            tools:ignore="RtlCompat" />
+    </LinearLayout>

@@ -1,0 +1,80 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:orientation="vertical"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    tools:context=".MainActivity">
+    <ImageView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:id="@+id/imageView"
+        android:layout_alignParentTop="true"
+        android:src="@drawable/img"
+        android:scaleType="fitXY"
+        android:adjustViewBounds="true"/>
+    <LinearLayout
+        android:layout_below="@+id/imageView"
+        android:layout_above="@+id/footer"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:orientation="vertical"
+        android:layout_marginTop="2dp">
+        <ScrollView
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:fillViewport="true"
+            android:scrollbars="none">
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:id="@+id/OCRTextContainer">
+                <EditText
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:id="@+id/OCRTextView"
+                    android:textSize="18dp"
+                    android:textColor="#a3a3a3"
+                    android:focusable="false"
+
+                    android:padding="@dimen/padding10" />
+            </LinearLayout>
+        </ScrollView>
+    </LinearLayout>
+    <LinearLayout
+        android:id="@+id/footer"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_alignParentBottom="true"
+        android:orientation="horizontal"
+        android:weightSum="3">
+        <Button
+            android:layout_weight="1"
+            android:id="@+id/btn_take_camera"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:text="Take From Camera"
+            android:layout_gravity="center"
+            android:onClick="openCamera"/>
+
+        <Button
+            android:layout_weight="1"
+            android:id="@+id/btn_select_gallery"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:text="Select from Gallery"
+            android:layout_gravity="center"
+            android:onClick="openGallery"/>
+        <Button
+            android:layout_weight="1"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:text="Generate"
+            android:id="@+id/OCRbutton"
+            android:textSize="18dp"
+            android:clickable="true"
+            android:onClick="processImage"/>
+
+    </LinearLayout>
+</RelativeLayout>
