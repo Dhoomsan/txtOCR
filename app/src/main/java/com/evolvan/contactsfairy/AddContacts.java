@@ -1,14 +1,20 @@
 package com.evolvan.contactsfairy;
 
+import android.app.AlertDialog;
 import android.content.Intent;
 import android.content.res.AssetManager;
 import android.database.Cursor;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
+import android.graphics.Color;
+import android.graphics.drawable.ColorDrawable;
 import android.net.Uri;
+import android.os.Build;
 import android.os.Bundle;
 import android.provider.MediaStore;
+import android.support.annotation.RequiresApi;
 import android.support.v7.app.AppCompatActivity;
+import android.view.LayoutInflater;
 import android.view.View;
 import android.widget.Button;
 import android.widget.ImageView;
@@ -21,12 +27,16 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 public class AddContacts extends AppCompatActivity implements View.OnClickListener {
     private static final int PICK_FROM_CAMERA = 1;
     private static final int PICK_FROM_GALLERY = 2;
-    ImageView ImageView;
-    TextView TextView;
+    ImageView ImageView, ButtonCancel,zoom_image;
+    TextView TextView,ulr_view,OCRTextView;
     Button Camera,Gallery;
     Intent intent;
 
@@ -35,7 +45,8 @@ public class AddContacts extends AppCompatActivity implements View.OnClickListen
     Bitmap bitmap;
     private TessBaseAPI mTess;
     String datapath = "";
-    Bundle extras;
+
+    Boolean resultok=false;
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -43,6 +54,8 @@ public class AddContacts extends AppCompatActivity implements View.OnClickListen
         //initialize
         ImageView=(ImageView)findViewById(R.id.ImageView);
         TextView=(TextView)findViewById(R.id.TextView);
+        OCRTextView = (TextView) findViewById(R.id.TextView);
+        ulr_view=(TextView)findViewById(R.id.ulr_view);
         Camera=(Button)findViewById(R.id.Camera);
         Gallery=(Button)findViewById(R.id.Gallery);
 
@@ -58,6 +71,28 @@ public class AddContacts extends AppCompatActivity implements View.OnClickListen
         mTess.init(datapath, language);
     }
 
+    public void ClickImages(View view){
+        if(resultok){
+            LayoutInflater li = LayoutInflater.from(this);
+            View promptsView = li.inflate(R.layout.zoom_view, null);
+            AlertDialog.Builder alertDialogBuilder = new AlertDialog.Builder(this);
+            // set prompts.xml to alertdialog notification
+            alertDialogBuilder.setView(promptsView);
+            // create alert dialog
+            final AlertDialog alertDialog = alertDialogBuilder.create();
+            alertDialog.getWindow().setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT));
+            zoom_image = (ImageView) promptsView.findViewById(R.id.zoom_image);
+            zoom_image.setImageBitmap(bitmap);
+            ButtonCancel = (ImageView) promptsView.findViewById(R.id.ButtonCancel);
+            ButtonCancel.setOnClickListener(new View.OnClickListener() {
+                @Override
+                public void onClick(View view) {
+                    alertDialog.cancel();
+                }
+            });
+            alertDialog.show();
+        }
+    }
     @Override
     public void onClick(View v) {
         switch (v.getId()) {
@@ -132,11 +167,33 @@ public class AddContacts extends AppCompatActivity implements View.OnClickListen
         String OCRresult = null;
         mTess.setImage(bitmap);
         OCRresult = mTess.getUTF8Text();
-        TextView OCRTextView = (TextView) findViewById(R.id.TextView);
         OCRTextView.setText(OCRresult);
         if(OCRTextView.getText().length()==0){
-            Toast.makeText(getApplicationContext(), "cannot recognize text anymore ! \n try again", Toast.LENGTH_LONG).show();
+            Toast.makeText(getApplicationContext(), "Sorry, we could not find any text in your image", Toast.LENGTH_LONG).show();
         }
+        else {
+            List<String> extractedUrls = extractUrls(OCRresult);
+            for (String url : extractedUrls)
+            {
+                ulr_view.setText(url);
+            }
+            resultok=true;
+        }
+    }
+    private static List<String> extractUrls(String text)
+    {
+        List<String> containedUrls = new ArrayList<String>();
+        String urlRegex = "((https?|ftp|gopher|telnet|file):((//)|(\\\\))+[\\w\\d:#@%/;$()~_?\\+-=\\\\\\.&]*)";
+        Pattern pattern = Pattern.compile(urlRegex, Pattern.CASE_INSENSITIVE);
+        Matcher urlMatcher = pattern.matcher(text);
+
+        while (urlMatcher.find())
+        {
+            containedUrls.add(text.substring(urlMatcher.start(0),
+                    urlMatcher.end(0)));
+        }
+
+        return containedUrls;
     }
 
     private void checkFile(File dir) {

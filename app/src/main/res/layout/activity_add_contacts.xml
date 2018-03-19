@@ -1,5 +1,4 @@
 <?xml version="1.0" encoding="utf-8"?>
-
 <RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools"
     android:orientation="vertical"
@@ -7,13 +6,15 @@
     android:layout_height="match_parent"
     tools:context=".MainActivity">
     <ImageView
-        android:layout_width="match_parent"
-        android:layout_height="150dp"
+        android:padding="5dp"
+        android:layout_width="100dp"
+        android:layout_height="100dp"
         android:id="@+id/ImageView"
+        android:scaleType="centerCrop"
+        android:layout_centerInParent="true"
         android:layout_alignParentTop="true"
-        android:scaleType="fitXY"
-        android:src="@drawable/img"
-        android:adjustViewBounds="true"/>
+        android:src="@drawable/images_view"
+        android:onClick="ClickImages"/>
     <LinearLayout
         android:layout_below="@+id/ImageView"
         android:layout_above="@+id/footer"
@@ -21,6 +22,10 @@
         android:layout_height="match_parent"
         android:orientation="vertical"
         android:layout_marginTop="2dp">
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="@dimen/padding1"
+            android:background="@color/colorAccent"/>
         <ScrollView
             android:layout_width="match_parent"
             android:layout_height="match_parent"
@@ -29,16 +34,21 @@
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="match_parent"
-                android:id="@+id/OCRTextContainer">
+                android:id="@+id/OCRTextContainer"
+                android:orientation="vertical">
                 <TextView
                     android:layout_width="match_parent"
-                    android:layout_height="match_parent"
+                    android:layout_height="wrap_content"
                     android:id="@+id/TextView"
                     android:textSize="18dp"
                     android:textColor="#a3a3a3"
                     android:focusable="false"
-
                     android:padding="@dimen/padding10" />
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text=" "
+                    android:id="@+id/ulr_view"/>
             </LinearLayout>
         </ScrollView>
     </LinearLayout>
@@ -56,7 +66,6 @@
             android:layout_height="match_parent"
             android:text="Camera"
             android:layout_gravity="center" />
-
         <Button
             android:layout_weight="1"
             android:id="@+id/Gallery"
@@ -64,6 +73,5 @@
             android:layout_height="match_parent"
             android:text="Gallery"
             android:layout_gravity="center" />
-
     </LinearLayout>
 </RelativeLayout>
