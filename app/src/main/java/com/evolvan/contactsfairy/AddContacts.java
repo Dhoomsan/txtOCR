@@ -31,6 +31,9 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -176,12 +179,29 @@ public class AddContacts extends AppCompatActivity implements View.OnClickListen
         String OCRresult = null;
         mTess.setImage(bitmap);
         OCRresult = mTess.getUTF8Text();
+        String str[] = OCRresult.split("\n");
+
+        List<String> al = new ArrayList<String>();
+        al = Arrays.asList(str);
+        for(String s: al){
+            Log.d("listdata",s);
+        }
+
         if(OCRresult.length()==0){
             Toast.makeText(getApplicationContext(), "Sorry, we could not find any text in your image", Toast.LENGTH_LONG).show();
         }
         else {
             resultok=true;
-            addView(OCRresult);
+            Layouttime = (LinearLayout) findViewById(R.id.OCRTextContainer);
+            for(String s: al){
+                layoutView = new LinearLayout(this);
+                layoutView.setOrientation(LinearLayout.HORIZONTAL);
+                e_mail = new EditText(this);
+                e_mail.setText(s);
+                layoutView.addView(e_mail);
+                Layouttime.addView(layoutView);
+            }
+            //addView(OCRresult);
 
         }
     }
