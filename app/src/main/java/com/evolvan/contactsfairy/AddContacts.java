@@ -1,6 +1,7 @@
 package com.evolvan.contactsfairy;
 
 import android.app.AlertDialog;
+import android.content.Context;
 import android.content.Intent;
 import android.content.res.AssetManager;
 import android.database.Cursor;
@@ -9,26 +10,27 @@ import android.graphics.BitmapFactory;
 import android.graphics.Color;
 import android.graphics.drawable.ColorDrawable;
 import android.net.Uri;
-import android.os.Build;
 import android.os.Bundle;
 import android.provider.MediaStore;
-import android.support.annotation.RequiresApi;
 import android.support.v7.app.AppCompatActivity;
+import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.widget.Button;
+import android.widget.EditText;
 import android.widget.ImageView;
+import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.widget.Toast;
 import com.googlecode.tesseract.android.TessBaseAPI;
+
+import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
-import java.util.ArrayList;
-import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -36,26 +38,25 @@ public class AddContacts extends AppCompatActivity implements View.OnClickListen
     private static final int PICK_FROM_CAMERA = 1;
     private static final int PICK_FROM_GALLERY = 2;
     ImageView ImageView, ButtonCancel,zoom_image;
-    TextView TextView,ulr_view,OCRTextView;
     Button Camera,Gallery;
     Intent intent;
 
-    File file;
-    Uri fileUri;
     Bitmap bitmap;
     private TessBaseAPI mTess;
     String datapath = "";
 
     Boolean resultok=false;
+
+    LinearLayout Layouttime,layoutView;
+    TextView mail;
+    EditText e_mail;
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_add_contacts);
         //initialize
         ImageView=(ImageView)findViewById(R.id.ImageView);
-        TextView=(TextView)findViewById(R.id.TextView);
-        OCRTextView = (TextView) findViewById(R.id.TextView);
-        ulr_view=(TextView)findViewById(R.id.ulr_view);
+
         Camera=(Button)findViewById(R.id.Camera);
         Gallery=(Button)findViewById(R.id.Gallery);
 
@@ -116,14 +117,14 @@ public class AddContacts extends AppCompatActivity implements View.OnClickListen
 
     public void OpenCamera(){
         intent = new Intent(android.provider.MediaStore.ACTION_IMAGE_CAPTURE);
-        file = new File(this.getExternalCacheDir(), String.valueOf(System.currentTimeMillis()) + ".jpg");
-        fileUri = Uri.fromFile(file);
-        intent.putExtra(MediaStore.EXTRA_OUTPUT, fileUri);
-        startActivityForResult(intent, PICK_FROM_CAMERA);
+        if (intent.resolveActivity(getPackageManager()) != null) {
+            startActivityForResult(intent, PICK_FROM_CAMERA);
+        }
     }
 
     @Override
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        Log.d("getData","data= "+ String.valueOf(data));
         if(resultCode == RESULT_OK && null != data) {
             switch (requestCode) {
                 case PICK_FROM_GALLERY: {
@@ -142,10 +143,12 @@ public class AddContacts extends AppCompatActivity implements View.OnClickListen
                     break;
                 }
                 case PICK_FROM_CAMERA: {
+                    Bundle extras = data.getExtras();
+                    Bitmap bitmap1 = (Bitmap) extras.get("data");
+                    Uri tempUri = getImageUri(getApplicationContext(), bitmap1);
                     String[] filePath = { MediaStore.Images.Media.DATA };
-                    Cursor cursor = this.managedQuery(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, filePath, null, null, null);
+                    Cursor cursor = getContentResolver().query(tempUri, filePath, null, null, null);
                     cursor.moveToFirst();
-
                     String imagePath = cursor.getString(cursor.getColumnIndex(filePath[0]));
                     BitmapFactory.Options options = new BitmapFactory.Options();
                     options.inPreferredConfig = Bitmap.Config.ARGB_8888;
@@ -162,40 +165,122 @@ public class AddContacts extends AppCompatActivity implements View.OnClickListen
             Toast.makeText(getApplicationContext(), "Operation could not be completed ! \n try again", Toast.LENGTH_LONG).show();
         }
     }
+    public Uri getImageUri(Context inContext, Bitmap inImage) {
+        ByteArrayOutputStream bytes = new ByteArrayOutputStream();
+        inImage.compress(Bitmap.CompressFormat.JPEG, 100, bytes);
+        String path = MediaStore.Images.Media.insertImage(inContext.getContentResolver(), inImage, "Title", null);
+        return Uri.parse(path);
+    }
 
     public void processImage(){
         String OCRresult = null;
         mTess.setImage(bitmap);
         OCRresult = mTess.getUTF8Text();
-        OCRTextView.setText(OCRresult);
-        if(OCRTextView.getText().length()==0){
+        if(OCRresult.length()==0){
             Toast.makeText(getApplicationContext(), "Sorry, we could not find any text in your image", Toast.LENGTH_LONG).show();
         }
         else {
-            List<String> extractedUrls = extractUrls(OCRresult);
-            for (String url : extractedUrls)
-            {
-                ulr_view.setText(url);
-            }
             resultok=true;
+            addView(OCRresult);
+
         }
     }
-    private static List<String> extractUrls(String text)
-    {
-        List<String> containedUrls = new ArrayList<String>();
-        String urlRegex = "((https?|ftp|gopher|telnet|file):((//)|(\\\\))+[\\w\\d:#@%/;$()~_?\\+-=\\\\\\.&]*)";
-        Pattern pattern = Pattern.compile(urlRegex, Pattern.CASE_INSENSITIVE);
-        Matcher urlMatcher = pattern.matcher(text);
 
-        while (urlMatcher.find())
-        {
-            containedUrls.add(text.substring(urlMatcher.start(0),
-                    urlMatcher.end(0)));
+    public void addView(String OCRresult){
+      Layouttime = (LinearLayout) findViewById(R.id.OCRTextContainer);
+         /* layoutView = new LinearLayout(this);
+        layoutView.setOrientation(LinearLayout.HORIZONTAL);
+        e_mail = new EditText(this);
+        e_mail.setText(OCRresult);
+        layoutView.addView(e_mail);
+        Layouttime.addView(layoutView);*/
+        //Name
+       /* Matcher name =  Pattern.compile("").matcher(OCRresult);
+        while (name.find()) {
+            layoutView = new LinearLayout(this);
+            layoutView.setOrientation(LinearLayout.HORIZONTAL);
+            mail=new TextView(this);
+            mail.setText("  Name : ");
+            layoutView.addView(mail);
+            e_mail = new EditText(this);
+            e_mail.setText(name.group());
+            layoutView.addView(e_mail);
+            Layouttime.addView(layoutView);
+        }*/
+        //number
+        Matcher Number =  Pattern.compile("(\\d{3}[-\\.\\s]\\d{4}[-\\.\\s]\\d{3})|(\\d{10})|((?:\\/d{3}-){2}\\/d{4})|(\\(\\d{3}\\)\\d{3}-?\\d{4})|((?:\\(\\d{3}\\)|\\d{3}[-]*)\\d{3}[-]*\\d{4})|(^[+]?[01]?[- .]?(\\([2-9]\\d{2}\\)|[2-9]\\d{2})[- .]?\\d{3}[- .]?\\d{4}$)").matcher(OCRresult);
+        while (Number.find()) {
+            layoutView = new LinearLayout(this);
+            layoutView.setOrientation(LinearLayout.HORIZONTAL);
+            TextView mail=new TextView(this);
+            mail.setText("  Number : ");
+            layoutView.addView(mail);
+            TextView e_mail = new EditText(this);
+            e_mail.setText(Number.group());
+            layoutView.addView(e_mail);
+            Layouttime.addView(layoutView);
+        }
+        //email
+        Matcher e_Mail = Pattern.compile("[a-zA-Z0-9'_.+-]+@[a-zA-Z0-9-']+\\.[a-zA-Z0-9-.]+").matcher(OCRresult);
+       // Matcher e_Mail = Pattern.compile("[a-zA-Z0-9._-]+@[a-z]+\\\\.+[a-z]+").matcher(OCRresult);
+
+        while (e_Mail.find()) {
+            layoutView = new LinearLayout(this);
+            layoutView.setOrientation(LinearLayout.HORIZONTAL);
+            TextView mail=new TextView(this);
+            mail.setText("  e_Mail : ");
+            layoutView.addView(mail);
+            TextView e_mail = new EditText(this);
+            e_mail.setText(e_Mail.group());
+            layoutView.addView(e_mail);
+            Layouttime.addView(layoutView);
+        }
+        //Organization
+        Matcher Organization =  Pattern.compile("(?:[\\w-]+\\.)+[\\w-]+").matcher(OCRresult);
+        while (Organization.find()) {
+            layoutView = new LinearLayout(this);
+            layoutView.setOrientation(LinearLayout.HORIZONTAL);
+            mail=new TextView(this);
+            mail.setText("  Organization : ");
+            layoutView.addView(mail);
+            e_mail = new EditText(this);
+            String[] split=Organization.group().split("\\.",2);
+            String tore=split[0];
+            e_mail.setText(tore);
+            layoutView.addView(e_mail);
+            Layouttime.addView(layoutView);
         }
 
-        return containedUrls;
-    }
+        //Website
+        Matcher Website =  Pattern.compile("(?:[\\w-]+\\.)+[\\w-]+").matcher(OCRresult);
+        while (Website.find()) {
+            layoutView = new LinearLayout(this);
+            layoutView.setOrientation(LinearLayout.HORIZONTAL);
 
+            mail=new TextView(this);
+            mail.setText("  Website : ");
+            layoutView.addView(mail);
+
+            e_mail = new EditText(this);
+            e_mail.setText(Website.group());
+            layoutView.addView(e_mail);
+            Layouttime.addView(layoutView);
+        }
+        /*//Address
+        Matcher Address =  Pattern.compile("").matcher(OCRresult);
+        while (Address.find()) {
+            layoutView = new LinearLayout(this);
+            layoutView.setOrientation(LinearLayout.HORIZONTAL);
+            mail=new TextView(this);
+            mail.setText("  Address : ");
+            layoutView.addView(mail);
+            e_mail = new EditText(this);
+            e_mail.setText(Address.group());
+            layoutView.addView(e_mail);
+            Layouttime.addView(layoutView);
+        }*/
+
+    }
     private void checkFile(File dir) {
         if (!dir.exists()&& dir.mkdirs()){
             copyFiles();
