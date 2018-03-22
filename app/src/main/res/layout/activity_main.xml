@@ -1,13 +1,73 @@
 <?xml version="1.0" encoding="utf-8"?>
 <RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools"
+    android:orientation="vertical"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    tools:context="com.evolvan.contactsfairy.MainActivity"
-    android:id="@+id/list_item">
-    <ListView
-        android:id="@+id/list"
+    tools:context=".MainActivity"
+    android:background="@android:color/white">
+    <ImageView
+        android:padding="5dp"
+        android:layout_width="100dp"
+        android:layout_height="100dp"
+        android:id="@+id/ImageView"
+        android:scaleType="centerCrop"
+        android:layout_centerInParent="true"
+        android:layout_alignParentTop="true"
+        android:src="@drawable/show_image"
+        android:onClick="zoom_Image"/>
+    <LinearLayout
+        android:layout_below="@+id/ImageView"
+        android:layout_above="@+id/footer"
         android:layout_width="match_parent"
-        android:layout_height="wrap_content" />
+        android:layout_height="match_parent"
+        android:orientation="vertical"
+        android:layout_marginTop="2dp">
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="@dimen/padding1"
+            android:background="@color/colorPrimary"/>
+        <ScrollView
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:fillViewport="true"
+            android:scrollbars="none">
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:id="@+id/OCRTextContainer"
+                android:orientation="vertical">
 
+            </LinearLayout>
+        </ScrollView>
+    </LinearLayout>
+    <LinearLayout
+        android:id="@+id/footer"
+        android:layout_width="match_parent"
+        android:layout_height="@dimen/padding40"
+        android:layout_alignParentBottom="true"
+        android:orientation="horizontal"
+        android:layout_centerInParent="true"
+        android:gravity="center"
+        android:weightSum="2">
+        <Button
+            android:layout_weight="1"
+            android:id="@+id/Camera"
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:text="Camera"
+            android:onClick="Open_Camera"
+            android:textColor="@android:color/white"
+            android:background="@color/colorPrimary"/>
+        <Button
+            android:layout_weight="1"
+            android:id="@+id/Gallery"
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:text="Gallery"
+            android:onClick="Open_Gallery"
+            android:textColor="@android:color/white"
+            android:background="@color/colorPrimaryDark"/>
+    </LinearLayout>
 </RelativeLayout>
+

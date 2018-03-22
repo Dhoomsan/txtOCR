@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent">
+
+    <LinearLayout
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:weightSum="2"
+        android:background="@android:color/holo_red_dark"
+        android:layout_centerInParent="true"
+        android:padding="@dimen/padding1">
+        <TextView
+            android:id="@+id/allert_camera"
+            android:layout_weight="1"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:text="CAMERA"
+            android:textStyle="bold"
+            android:textAlignment="center"
+            android:padding="@dimen/padding10"
+            android:background="@android:color/white"
+            android:layout_marginBottom="@dimen/padding1"/>
+
+        <TextView
+            android:id="@+id/alert_gallery"
+            android:layout_weight="1"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:text="GALLERY"
+            android:textStyle="bold"
+            android:textAlignment="center"
+            android:background="@android:color/white"
+            android:padding="@dimen/padding10"/>
+    </LinearLayout>
+
+</RelativeLayout>
