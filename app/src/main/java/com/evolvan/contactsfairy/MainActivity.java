@@ -1,10 +1,7 @@
 package com.evolvan.contactsfairy;
 
 import android.app.AlertDialog;
-import android.app.ProgressDialog;
-import android.content.ContentResolver;
 import android.content.Context;
-import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.content.res.AssetManager;
@@ -12,33 +9,28 @@ import android.database.Cursor;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.graphics.Color;
+import android.graphics.Matrix;
 import android.graphics.drawable.ColorDrawable;
+import android.media.ExifInterface;
 import android.net.Uri;
-import android.os.Build;
-import android.os.Handler;
 import android.provider.ContactsContract;
 import android.provider.MediaStore;
-import android.support.v4.app.ActivityCompat;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
-import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
+import android.view.ViewGroup;
 import android.widget.AdapterView;
 import android.widget.ArrayAdapter;
-import android.widget.Button;
 import android.widget.EditText;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
-import android.widget.ListView;
 import android.widget.Spinner;
 import android.widget.TextView;
 import android.widget.Toast;
-
 import com.googlecode.tesseract.android.TessBaseAPI;
-
 import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileNotFoundException;
@@ -47,33 +39,23 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-import static android.Manifest.permission.CAMERA;
-import static android.Manifest.permission.READ_CONTACTS;
-import static android.Manifest.permission.READ_EXTERNAL_STORAGE;
-import static android.Manifest.permission.WRITE_EXTERNAL_STORAGE;
-
 public class MainActivity extends AppCompatActivity implements AdapterView.OnItemSelectedListener{
-    String[] Parameter = { "Name", "Number", "EMail", "Work", "Company" , "Address" , "Link", "Other" };
-    private static final int openContactAndAddData=147;
-    private static final int PICK_FROM_CAMERA = 123;
-    private static final int PICK_FROM_GALLERY = 159;
-    private static final int TIME_DELAY = 2000;
+    String[] Parameter = { "SELECT","NAME", "PHONE", "EMAIL", "COMPANY" ,"JOB_TITLE", "POSTAL","URL","OTHERs"},str;
+    private static final int openContactAndAddData=147,PICK_FROM_CAMERA = 123,PICK_FROM_GALLERY = 159, TIME_DELAY = 2000;
     private static long back_pressed;
     Intent intent;
-    PackageManager packageManager;
-    String[] sendValues ={"Name","Number","EMail","Company"};
-
     Bitmap bitmap;
     private TessBaseAPI mTess;
-    String datapath = "",getAppName;
-
+    String datapath = "",getAppName,language = "eng";
+    String[] sendValues={"NAME","PHONE","SECONDARY_PHONE","EMAIL","COMPANY","JOB_TITLE","POSTAL","IM_PROTOCOL","DATA"};
     LinearLayout Layouttime,layoutView;
     EditText e_mail;
+
+    PackageManager packageManager;
 
     ImageView imageView,zoom_image,ButtonCancel;
     LayoutInflater layoutInflater;
@@ -82,10 +64,13 @@ public class MainActivity extends AppCompatActivity implements AdapterView.OnIte
     TextView allert_camera,alert_gallery;
     Spinner spin;
     ArrayAdapter aa;
-    String[] str,storeParameter,storeValues;
     private Menu menu;
     List<String> al;
-    List<EditText> allEds = new ArrayList<EditText>();
+    List<String> add_match;
+    int id=0;
+    List<String> allEds = new ArrayList<String>();
+    List<String>storeParameter=new ArrayList<>();
+    private ExifInterface exifObject;
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -94,7 +79,6 @@ public class MainActivity extends AppCompatActivity implements AdapterView.OnIte
         imageView=(ImageView)findViewById(R.id.ImageView);
 
         //initialize Tesseract API
-        String language = "eng";
         datapath = getFilesDir()+ "/tesseract/";
         mTess = new TessBaseAPI();
         checkFile(new File(datapath + "tessdata/"));
@@ -141,17 +125,17 @@ public class MainActivity extends AppCompatActivity implements AdapterView.OnIte
     }
 
     //if image not selected choose oprations
-    public void open_Camera_or_Gallery(View zoomImage){
+    public void open_Camera_or_Gallery(View openCameraGallery){
         layoutInflater = LayoutInflater.from(this);
-        zoomImage = layoutInflater.inflate(R.layout.camera_gallery, null);
+        openCameraGallery = layoutInflater.inflate(R.layout.camera_gallery, null);
         alertDialogBuilder = new AlertDialog.Builder(this);
         // set prompts.xml to alertdialog notification
-        alertDialogBuilder.setView(zoomImage);
+        alertDialogBuilder.setView(openCameraGallery);
         // create alert dialog
         alertDialog = alertDialogBuilder.create();
         alertDialog.getWindow().setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT));
-        allert_camera = (TextView) zoomImage.findViewById(R.id.allert_camera);
-        alert_gallery = (TextView) zoomImage.findViewById(R.id.alert_gallery);
+        allert_camera = (TextView) openCameraGallery.findViewById(R.id.allert_camera);
+        alert_gallery = (TextView) openCameraGallery.findViewById(R.id.alert_gallery);
         allert_camera.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
@@ -185,33 +169,6 @@ public class MainActivity extends AppCompatActivity implements AdapterView.OnIte
         startActivityForResult(intent, PICK_FROM_GALLERY);
     }
 
-    //now add all data in phone book
-    public void Add_Data_In_Contacts_List(){
-        if(al.size()>=0) {
-            for (int i=0;i<al.size();i++) {
-                storeValues[i]= allEds.get(i).getText().toString();
-                if(i<4) {
-                    sendValues[i] = storeValues[i];
-                }
-                Log.d("printStoreValues", storeParameter[i] + "-" + storeValues[i]);
-            }
-        }
-
-        intent= new Intent(ContactsContract.Intents.Insert.ACTION);
-        intent.setType(ContactsContract.RawContacts.CONTENT_TYPE);
-
-        intent  .putExtra(ContactsContract.Intents.Insert.NAME, sendValues[0])
-                .putExtra(ContactsContract.Intents.Insert.PHONE, sendValues[1])
-                .putExtra(ContactsContract.Intents.Insert.EMAIL, sendValues[2])
-                .putExtra(ContactsContract.Intents.Insert.COMPANY, sendValues[3]);
-        packageManager = this.getPackageManager();
-        if (intent.resolveActivity(packageManager) != null) {
-            startActivityForResult(intent, openContactAndAddData);
-        } else {
-            Something_went_wrong();
-        }
-    }
-
     @Override
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         if(resultCode == RESULT_OK && null != data) {
@@ -228,7 +185,7 @@ public class MainActivity extends AppCompatActivity implements AdapterView.OnIte
                     cursor.close();
 
                     imageView.setImageBitmap(bitmap);
-                    processImage();
+                    processImageData();
                     break;
                 }
                 case PICK_FROM_CAMERA: {
@@ -244,8 +201,21 @@ public class MainActivity extends AppCompatActivity implements AdapterView.OnIte
                     bitmap = BitmapFactory.decodeFile(imagePath, options);
                     cursor.close();
 
-                    imageView.setImageBitmap(bitmap);
-                    processImage();
+                    if(imageView.getDrawable() != null){
+                        try {
+                            exifObject = new ExifInterface(imagePath);
+                        } catch (IOException e) {
+                            e.printStackTrace();
+                        }
+                        int orientation = exifObject.getAttributeInt(ExifInterface.TAG_ORIENTATION, ExifInterface.ORIENTATION_UNDEFINED);
+                        Bitmap imageRotate = rotateBitmap(bitmap,orientation);
+                        imageView.setImageBitmap(imageRotate);
+                    }else{
+                        Toast.makeText(MainActivity.this, "Image photo is not yet set", Toast.LENGTH_LONG).show();
+                    }
+
+                    //imageView.setImageBitmap(bitmap);
+                    processImageData();
                     break;
                 }
                 case openContactAndAddData: {
@@ -253,6 +223,50 @@ public class MainActivity extends AppCompatActivity implements AdapterView.OnIte
                     break;
                 }
             }
+        }
+    }
+
+    //Image oriantation
+    public static Bitmap rotateBitmap(Bitmap bitmap, int orientation) {
+        Matrix matrix = new Matrix();
+        switch (orientation) {
+            case ExifInterface.ORIENTATION_NORMAL:
+                return bitmap;
+            case ExifInterface.ORIENTATION_FLIP_HORIZONTAL:
+                matrix.setScale(-1, 1);
+                break;
+            case ExifInterface.ORIENTATION_ROTATE_180:
+                matrix.setRotate(180);
+                break;
+            case ExifInterface.ORIENTATION_FLIP_VERTICAL:
+                matrix.setRotate(180);
+                matrix.postScale(-1, 1);
+                break;
+            case ExifInterface.ORIENTATION_TRANSPOSE:
+                matrix.setRotate(90);
+                matrix.postScale(-1, 1);
+                break;
+            case ExifInterface.ORIENTATION_ROTATE_90:
+                matrix.setRotate(90);
+                break;
+            case ExifInterface.ORIENTATION_TRANSVERSE:
+                matrix.setRotate(-90);
+                matrix.postScale(-1, 1);
+                break;
+            case ExifInterface.ORIENTATION_ROTATE_270:
+                matrix.setRotate(-90);
+                break;
+            default:
+                return bitmap;
+        }
+        try {
+            Bitmap bmRotated = Bitmap.createBitmap(bitmap, 0, 0, bitmap.getWidth(), bitmap.getHeight(), matrix, true);
+            bitmap.recycle();
+            return bmRotated;
+        }
+        catch (OutOfMemoryError e) {
+            e.printStackTrace();
+            return null;
         }
     }
 
@@ -265,7 +279,7 @@ public class MainActivity extends AppCompatActivity implements AdapterView.OnIte
     }
 
     //extract image
-    public void processImage(){
+    public void processImageData(){
         String OCRresult = null;
         mTess.setImage(bitmap);
         OCRresult = mTess.getUTF8Text();
@@ -282,32 +296,41 @@ public class MainActivity extends AppCompatActivity implements AdapterView.OnIte
             Toast.makeText(getApplicationContext(), "Sorry, we could not find any text in your image", Toast.LENGTH_LONG).show();
         }
         else {
-            int id=0;
+            id=0;
+            add_match=new ArrayList<>();
             Layouttime = (LinearLayout) findViewById(R.id.OCRTextContainer);
+            allEds.clear();
+            storeParameter.clear();
             Layouttime.removeAllViews();
-            storeParameter=new String[al.size()];
-            storeValues=new String[al.size()];
             for(String s: al){
-                layoutView = new LinearLayout(this);
-                layoutView.setOrientation(LinearLayout.HORIZONTAL);
+                //company name and domain name
+                if ((s.contains("@")==false)&&(s.contains("."))){
+                    String com=null;
+                    //Website
+                    Matcher Website =  Pattern.compile("(?:[a-z-]+\\.)+[a-z-]+").matcher(s);
+                    while (Website.find()) {
+                        showLayout(id,Website.group(),7);
+                        com=Website.group();
+                    }
+                    if(!com.isEmpty()){
+                        String[] split=com.split("\\.",2);
+                        String tore=split[0];
+                        showLayout(id,tore,4);
+                    }
+                }
 
-                spin = new Spinner(this);
-                spin.setOnItemSelectedListener(this);
-                aa = new ArrayAdapter(this, android.R.layout.simple_spinner_item, Parameter);
-                aa.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
-                spin.setAdapter(aa);
-                spin.setId(id);
-                layoutView.addView(spin);
-
-                e_mail = new EditText(this);
-                e_mail.setText(s);
-                allEds.add(e_mail);
-                e_mail.setId(id);
-
-                layoutView.addView(e_mail);
-                Layouttime.addView(layoutView);
-
-                storeParameter[id]=spin.getSelectedItem().toString();
+                //phone number
+                if(checkNumber(s)) {
+                    showLayout(id, s, 2);
+                }
+                //email id
+                else if(s.contains("@")){
+                    showLayout(id,s,3);
+                }
+                // not varify
+                else {
+                    showLayout(id,s,0);
+                }
 
                 id++;
             }
@@ -317,11 +340,89 @@ public class MainActivity extends AppCompatActivity implements AdapterView.OnIte
             }
         }
     }
+    //identify phone number from string
+    boolean checkNumber(String s){
+        int count = 0;
+        for (int i = 0, len = s.length(); i < len; i++) {
+            if (Character.isDigit(s.charAt(i))) {
+                count++;
+            }
+        }
+        if(count>=7)
+            return true;
+
+        return false;
+    }
+
+    public void showLayout(int id, String s,int i){
+
+        layoutView = new LinearLayout(this);
+        layoutView.setOrientation(LinearLayout.HORIZONTAL);
+        layoutView.setId(id);
+
+        spin = new Spinner(this);
+        spin.setOnItemSelectedListener(this);
+        aa = new ArrayAdapter(this, android.R.layout.simple_spinner_item, Parameter);
+        aa.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+        spin.setAdapter(aa);
+        spin.setSelection(i);
+        spin.setId(id);
+        storeParameter.add(spin.getItemAtPosition(id).toString());
+        layoutView.addView(spin);
+
+        e_mail = new EditText(this);
+        e_mail.setLayoutParams(new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+        e_mail.setText(s);
+        e_mail.setId(id);
+        allEds.add(s);
+        layoutView.addView(e_mail);
+
+        Layouttime.addView(layoutView);
+
+
+    }
+
+    //now add all data in phone book
+    public void Add_Data_In_Contacts_List(){
+
+        if(al.size()>=0) {
+            String[] strings=new String[al.size()];
+            for(int file=0;file<al.size();file++) {
+
+                    if (storeParameter.get(file).toString().equals(sendValues[file])) {
+                        sendValues[file] = allEds.get(file).toString();
+                    }
+
+            }
+
+            intent = new Intent(ContactsContract.Intents.Insert.ACTION);
+            intent.setType(ContactsContract.RawContacts.CONTENT_TYPE);
+
+            intent.putExtra(ContactsContract.Intents.Insert.NAME, sendValues[0])//insert name of person
+                    .putExtra(ContactsContract.Intents.Insert.PHONE, sendValues[1])//insert phone number of person
+                    .putExtra(ContactsContract.Intents.Insert.SECONDARY_PHONE,sendValues[2])//insert alternate phone number of person
+                    .putExtra(ContactsContract.Intents.Insert.EMAIL, sendValues[3])//insert email address of person
+                    .putExtra(ContactsContract.Intents.Insert.COMPANY, sendValues[4])//insert name of person
+                    .putExtra(ContactsContract.Intents.Insert.JOB_TITLE, sendValues[5])//insert name of person
+                    .putExtra(ContactsContract.Intents.Insert.POSTAL, sendValues[6])//insert name of person
+                    .putExtra(ContactsContract.Intents.Insert.IM_PROTOCOL,sendValues[7])//insert name of person
+                    .putExtra(ContactsContract.Intents.Insert.DATA, sendValues[8]);//insert name of person
+
+            packageManager = this.getPackageManager();
+            if (intent.resolveActivity(packageManager) != null) {
+                startActivity(intent);
+            } else {
+                Something_went_wrong();
+            }
+        }else {
+            Something_went_wrong();
+        }
+    }
 
     @Override
     public void onItemSelected(AdapterView<?> arg0, View arg1, int position,long id) {
-        storeParameter[position]=spin.getItemAtPosition(position).toString();
-        //Toast.makeText(getApplicationContext(),Parameter[position] ,Toast.LENGTH_LONG).show();
+            storeParameter.add(spin.getItemAtPosition(position).toString());
+        //Toast.makeText(getApplicationContext(),Parameter[position] ,Toast.LENGTH_SHORT).show();
     }
 
     @Override
