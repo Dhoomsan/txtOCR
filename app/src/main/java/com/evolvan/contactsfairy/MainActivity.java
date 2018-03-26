@@ -17,6 +17,7 @@ import android.provider.ContactsContract;
 import android.provider.MediaStore;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
+import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.Menu;
 import android.view.MenuItem;
@@ -51,7 +52,7 @@ public class MainActivity extends AppCompatActivity implements AdapterView.OnIte
     Bitmap bitmap;
     private TessBaseAPI mTess;
     String datapath = "",getAppName,language = "eng";
-    String[] sendValues={"NAME","PHONE","SECONDARY_PHONE","EMAIL","COMPANY","JOB_TITLE","POSTAL","IM_PROTOCOL","DATA"};
+    String NAME="",PHONE="",SECONDARY_PHONE="",EMAIL="",COMPANY="",JOB_TITLE="",POSTAL="",IM_PROTOCOL="",DATA="";
     LinearLayout Layouttime,layoutView;
     EditText e_mail;
 
@@ -62,15 +63,17 @@ public class MainActivity extends AppCompatActivity implements AdapterView.OnIte
     AlertDialog alertDialog;
     AlertDialog.Builder alertDialogBuilder;
     TextView allert_camera,alert_gallery;
-    Spinner spin;
-    ArrayAdapter aa;
+    Spinner spinner;
+    ArrayAdapter spinnerArrayAdapter;
     private Menu menu;
     List<String> al;
     List<String> add_match;
     int id=0;
-    List<String> allEds = new ArrayList<String>();
+    List<String> StoreValues = new ArrayList<String>();
     List<String>storeParameter=new ArrayList<>();
     private ExifInterface exifObject;
+    static String[] store_Intent_Values;
+    View view;
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -299,45 +302,48 @@ public class MainActivity extends AppCompatActivity implements AdapterView.OnIte
             id=0;
             add_match=new ArrayList<>();
             Layouttime = (LinearLayout) findViewById(R.id.OCRTextContainer);
-            allEds.clear();
+            StoreValues.clear();
             storeParameter.clear();
             Layouttime.removeAllViews();
             for(String s: al){
-                //company name and domain name
-                if ((s.contains("@")==false)&&(s.contains("."))){
-                    String com=null;
-                    //Website
-                    Matcher Website =  Pattern.compile("(?:[a-z-]+\\.)+[a-z-]+").matcher(s);
-                    while (Website.find()) {
-                        showLayout(id,Website.group(),7);
-                        com=Website.group();
-                    }
-                    if(!com.isEmpty()){
-                        String[] split=com.split("\\.",2);
-                        String tore=split[0];
-                        showLayout(id,tore,4);
-                    }
-                }
-
-                //phone number
-                if(checkNumber(s)) {
-                    showLayout(id, s, 2);
-                }
-                //email id
-                else if(s.contains("@")){
-                    showLayout(id,s,3);
-                }
-                // not varify
-                else {
-                    showLayout(id,s,0);
-                }
-
-                id++;
+                validation(s);
             }
             if(al.size()>0) {
                 MenuItem item = menu.findItem(R.id.action_create);
                 item.setVisible(true);
             }
+        }
+    }
+
+    public void validation(String s){
+        //company name and domain name
+        if ((s.contains("@")==false)&&(s.contains("."))){
+            String com=null;
+            //Website
+            Matcher Website =  Pattern.compile("(?:[a-z-]+\\.)+[a-z-]+").matcher(s);
+            while (Website.find()) {
+                showLayout(Website.group(),7);
+                com=Website.group();
+            }
+            if(!com.isEmpty()){
+                String[] split=com.split("\\.",2);
+                String tore=split[0];
+                showLayout(tore,4);
+            }
+        }
+
+        //phone number
+        else if(checkNumber(s)) {
+            String cc=s.replaceAll("[^+\\d]","");
+            showLayout(cc, 2);
+        }
+        //email id
+        else if(s.contains("@")){
+            showLayout(s,3);
+        }
+        // not varify
+        else {
+            showLayout(s,0);
         }
     }
     //identify phone number from string
@@ -354,59 +360,97 @@ public class MainActivity extends AppCompatActivity implements AdapterView.OnIte
         return false;
     }
 
-    public void showLayout(int id, String s,int i){
-
+    public void showLayout(String s,int i){
         layoutView = new LinearLayout(this);
         layoutView.setOrientation(LinearLayout.HORIZONTAL);
         layoutView.setId(id);
 
-        spin = new Spinner(this);
-        spin.setOnItemSelectedListener(this);
-        aa = new ArrayAdapter(this, android.R.layout.simple_spinner_item, Parameter);
-        aa.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
-        spin.setAdapter(aa);
-        spin.setSelection(i);
-        spin.setId(id);
-        storeParameter.add(spin.getItemAtPosition(id).toString());
-        layoutView.addView(spin);
+        spinner = new Spinner(this);
+        spinner.setOnItemSelectedListener(this);
+        spinnerArrayAdapter = new ArrayAdapter(this, android.R.layout.simple_spinner_item, Parameter);
+        spinnerArrayAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+        spinner.setAdapter(spinnerArrayAdapter);
+        spinner.setSelection(i);
+        spinner.setId(id);
+        storeParameter.add(spinner.getItemAtPosition(i).toString());
+        //spinnerArrayAdapter.notifyDataSetChanged();
+        layoutView.addView(spinner);
 
         e_mail = new EditText(this);
         e_mail.setLayoutParams(new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
         e_mail.setText(s);
         e_mail.setId(id);
-        allEds.add(s);
+        StoreValues.add(s);
         layoutView.addView(e_mail);
 
         Layouttime.addView(layoutView);
 
+        id++;
 
     }
 
     //now add all data in phone book
     public void Add_Data_In_Contacts_List(){
 
-        if(al.size()>=0) {
-            String[] strings=new String[al.size()];
-            for(int file=0;file<al.size();file++) {
+        if(StoreValues.size()>=0) {
+            int count=0;
+            store_Intent_Values=new String[StoreValues.size()];
+            for(int file=0;file<StoreValues.size();file++) {
 
-                    if (storeParameter.get(file).toString().equals(sendValues[file])) {
-                        sendValues[file] = allEds.get(file).toString();
+                Log.d("getData", storeParameter.get(file) + "-" + StoreValues.get(file).toString());
+
+                if(storeParameter.get(file).equals("NAME")){
+                    NAME+=StoreValues.get(file).toString();
+                    Log.d("getData",storeParameter.get(file)+"-"+NAME);
+                }
+                if(storeParameter.get(file).equals("PHONE")){
+                    if(count==0) {
+                        PHONE = StoreValues.get(file).toString();
+                        Log.d("getData",storeParameter.get(file)+"-"+PHONE);
                     }
-
+                    if (count==1){
+                        SECONDARY_PHONE = StoreValues.get(file).toString();
+                        Log.d("getData",storeParameter.get(file)+"-"+SECONDARY_PHONE);
+                    }
+                    count++;
+                }
+                if(storeParameter.get(file).equals("EMAIL")){
+                    EMAIL+=StoreValues.get(file).toString();
+                    Log.d("getData",storeParameter.get(file)+"-"+EMAIL);
+                }
+                if(storeParameter.get(file).equals("COMPANY")){
+                    COMPANY+=StoreValues.get(file);
+                    Log.d("getData",storeParameter.get(file)+"-"+COMPANY);
+                }
+                if(storeParameter.get(file).equals("JOB_TITLE")){
+                    JOB_TITLE+=StoreValues.get(file).toString();
+                    Log.d("getData",storeParameter.get(file)+"-"+JOB_TITLE);
+                }
+                if(storeParameter.get(file).equals("POSTAL")){
+                    POSTAL+=StoreValues.get(file).toString();
+                    Log.d("getData",storeParameter.get(file)+"-"+POSTAL);
+                }
+                if(storeParameter.get(file).equals("URL")){
+                    IM_PROTOCOL+=StoreValues.get(file).toString();
+                    Log.d("getData",storeParameter.get(file)+"-"+IM_PROTOCOL);
+                }
+                if(storeParameter.get(file).equals("OTHERs")){
+                    DATA+=StoreValues.get(file).toString();
+                    Log.d("getData",storeParameter.get(file)+"-"+DATA);
+                }
             }
-
             intent = new Intent(ContactsContract.Intents.Insert.ACTION);
             intent.setType(ContactsContract.RawContacts.CONTENT_TYPE);
 
-            intent.putExtra(ContactsContract.Intents.Insert.NAME, sendValues[0])//insert name of person
-                    .putExtra(ContactsContract.Intents.Insert.PHONE, sendValues[1])//insert phone number of person
-                    .putExtra(ContactsContract.Intents.Insert.SECONDARY_PHONE,sendValues[2])//insert alternate phone number of person
-                    .putExtra(ContactsContract.Intents.Insert.EMAIL, sendValues[3])//insert email address of person
-                    .putExtra(ContactsContract.Intents.Insert.COMPANY, sendValues[4])//insert name of person
-                    .putExtra(ContactsContract.Intents.Insert.JOB_TITLE, sendValues[5])//insert name of person
-                    .putExtra(ContactsContract.Intents.Insert.POSTAL, sendValues[6])//insert name of person
-                    .putExtra(ContactsContract.Intents.Insert.IM_PROTOCOL,sendValues[7])//insert name of person
-                    .putExtra(ContactsContract.Intents.Insert.DATA, sendValues[8]);//insert name of person
+            intent.putExtra(ContactsContract.Intents.Insert.NAME, NAME)//insert name of person
+                    .putExtra(ContactsContract.Intents.Insert.PHONE, PHONE)//insert phone number of person
+                    .putExtra(ContactsContract.Intents.Insert.SECONDARY_PHONE,SECONDARY_PHONE)//insert alternate phone number of person
+                    .putExtra(ContactsContract.Intents.Insert.EMAIL, EMAIL)//insert email address of person
+                    .putExtra(ContactsContract.Intents.Insert.COMPANY, COMPANY)//insert name of person
+                    .putExtra(ContactsContract.Intents.Insert.JOB_TITLE, JOB_TITLE)//insert name of person
+                    .putExtra(ContactsContract.Intents.Insert.POSTAL, POSTAL)//insert name of person
+                    .putExtra(ContactsContract.Intents.Insert.IM_PROTOCOL,IM_PROTOCOL)//insert name of person
+                    .putExtra(ContactsContract.Intents.Insert.DATA, DATA);//insert name of person
 
             packageManager = this.getPackageManager();
             if (intent.resolveActivity(packageManager) != null) {
@@ -420,16 +464,16 @@ public class MainActivity extends AppCompatActivity implements AdapterView.OnIte
     }
 
     @Override
-    public void onItemSelected(AdapterView<?> arg0, View arg1, int position,long id) {
-            storeParameter.add(spin.getItemAtPosition(position).toString());
-        //Toast.makeText(getApplicationContext(),Parameter[position] ,Toast.LENGTH_SHORT).show();
+    public void onItemSelected(AdapterView<?> parent, View views, int position,long id) {
+
+
+        storeParameter.set(parent.getId(),Parameter[position]);
+        Log.d("getData1",storeParameter.get(parent.getId())+"-"+parent.getId());
+
     }
 
     @Override
-    public void onNothingSelected(AdapterView<?> arg0) {
-        // TODO Auto-generated method stub
-
-    }
+    public void onNothingSelected(AdapterView<?> arg0) {}
 
     //authontication
     private void checkFile(File dir) {
