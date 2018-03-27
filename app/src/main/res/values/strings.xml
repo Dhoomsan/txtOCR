@@ -1,5 +1,3 @@
 <resources>
     <string name="app_name">ContactsFairy</string>
-    <string name="title_activity_add_manual">AddManual</string>
-    <string name="title_activity_add_camera">AddCamera</string>
 </resources>

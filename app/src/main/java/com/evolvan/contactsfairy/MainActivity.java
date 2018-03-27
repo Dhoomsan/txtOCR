@@ -1,9 +1,10 @@
 package com.evolvan.contactsfairy;
 
 import android.app.AlertDialog;
+import android.app.ProgressDialog;
+import android.content.ActivityNotFoundException;
 import android.content.Context;
 import android.content.Intent;
-import android.content.pm.PackageManager;
 import android.content.res.AssetManager;
 import android.database.Cursor;
 import android.graphics.Bitmap;
@@ -13,6 +14,7 @@ import android.graphics.Matrix;
 import android.graphics.drawable.ColorDrawable;
 import android.media.ExifInterface;
 import android.net.Uri;
+import android.os.Handler;
 import android.provider.ContactsContract;
 import android.provider.MediaStore;
 import android.support.v7.app.AppCompatActivity;
@@ -29,7 +31,6 @@ import android.widget.EditText;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.Spinner;
-import android.widget.TextView;
 import android.widget.Toast;
 import com.googlecode.tesseract.android.TessBaseAPI;
 import java.io.ByteArrayOutputStream;
@@ -44,49 +45,43 @@ import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import de.hdodenhof.circleimageview.CircleImageView;
+
 public class MainActivity extends AppCompatActivity implements AdapterView.OnItemSelectedListener{
-    String[] Parameter = { "SELECT","NAME", "PHONE", "EMAIL", "COMPANY" ,"JOB_TITLE", "POSTAL","URL","OTHERs"},str;
-    private static final int openContactAndAddData=147,PICK_FROM_CAMERA = 123,PICK_FROM_GALLERY = 159, TIME_DELAY = 2000;
+    String[] Parameter = { "SELECT","NAME", "PHONE", "EMAIL", "COMPANY" ,"JOB_TITLE", "POSTAL","URL","OTHERs"},str,store_Intent_Values;
+    private static final int PICK_FROM_CAMERA = 123,PICK_FROM_GALLERY = 159, TIME_DELAY = 2000;
     private static long back_pressed;
     Intent intent;
     Bitmap bitmap;
     private TessBaseAPI mTess;
-    String datapath = "",getAppName,language = "eng";
+    String datapath = "",getAppName,language = "eng",com="",OCRresult="";
     String NAME="",PHONE="",SECONDARY_PHONE="",EMAIL="",COMPANY="",JOB_TITLE="",POSTAL="",IM_PROTOCOL="",DATA="";
     LinearLayout Layouttime,layoutView;
     EditText e_mail;
-
-    PackageManager packageManager;
-
-    ImageView imageView,zoom_image,ButtonCancel;
+    ImageView zoom_image,ButtonCancel;
+    CircleImageView imageView;
     LayoutInflater layoutInflater;
     AlertDialog alertDialog;
     AlertDialog.Builder alertDialogBuilder;
-    TextView allert_camera,alert_gallery;
     Spinner spinner;
     ArrayAdapter spinnerArrayAdapter;
     private Menu menu;
     List<String> al;
-    List<String> add_match;
     int id=0;
     List<String> StoreValues = new ArrayList<String>();
     List<String>storeParameter=new ArrayList<>();
     private ExifInterface exifObject;
-    static String[] store_Intent_Values;
-    View view;
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
         getAppName=getString(R.string.app_name);
-        imageView=(ImageView)findViewById(R.id.ImageView);
-
+        imageView=(CircleImageView)findViewById(R.id.ImageView);
         //initialize Tesseract API
         datapath = getFilesDir()+ "/tesseract/";
         mTess = new TessBaseAPI();
         checkFile(new File(datapath + "tessdata/"));
         mTess.init(datapath, language);
-
     }
 
     @Override
@@ -101,59 +96,29 @@ public class MainActivity extends AppCompatActivity implements AdapterView.OnIte
 
     //on click image zoomm it
     public void zoom_Image(View zoomImage){
-        if (bitmap != null) {
-            layoutInflater = LayoutInflater.from(this);
-            zoomImage = layoutInflater.inflate(R.layout.zoom_view, null);
-            alertDialogBuilder = new AlertDialog.Builder(this);
-            // set prompts.xml to alertdialog notification
-            alertDialogBuilder.setView(zoomImage);
-            // create alert dialog
-            alertDialog = alertDialogBuilder.create();
-            alertDialog.getWindow().setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT));
-            zoom_image = (ImageView) zoomImage.findViewById(R.id.zoom_image);
+        layoutInflater = LayoutInflater.from(this);
+        zoomImage = layoutInflater.inflate(R.layout.zoom_view, null);
+        alertDialogBuilder = new AlertDialog.Builder(this);
+        // set prompts.xml to alertdialog notification
+        alertDialogBuilder.setView(zoomImage);
+        // create alert dialog
+        alertDialog = alertDialogBuilder.create();
+        alertDialog.getWindow().setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT));
+        zoom_image = (ImageView) zoomImage.findViewById(R.id.zoom_image);
+        if(bitmap!=null) {
             zoom_image.setImageBitmap(bitmap);
-            ButtonCancel = (ImageView) zoomImage.findViewById(R.id.ButtonCancel);
-            ButtonCancel.setOnClickListener(new View.OnClickListener() {
-                @Override
-                public void onClick(View view) {
+        }
+        else {
+            zoom_image.setImageDrawable(getResources().getDrawable(R.drawable.show_image));
+        }
+        ButtonCancel = (ImageView) zoomImage.findViewById(R.id.ButtonCancel);
+        ButtonCancel.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
                     alertDialog.cancel();
                 }
             });
             alertDialog.show();
-        }
-        else {
-            open_Camera_or_Gallery(zoomImage);
-        }
-
-    }
-
-    //if image not selected choose oprations
-    public void open_Camera_or_Gallery(View openCameraGallery){
-        layoutInflater = LayoutInflater.from(this);
-        openCameraGallery = layoutInflater.inflate(R.layout.camera_gallery, null);
-        alertDialogBuilder = new AlertDialog.Builder(this);
-        // set prompts.xml to alertdialog notification
-        alertDialogBuilder.setView(openCameraGallery);
-        // create alert dialog
-        alertDialog = alertDialogBuilder.create();
-        alertDialog.getWindow().setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT));
-        allert_camera = (TextView) openCameraGallery.findViewById(R.id.allert_camera);
-        alert_gallery = (TextView) openCameraGallery.findViewById(R.id.alert_gallery);
-        allert_camera.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                Open_Camera(v);
-                alertDialog.dismiss();
-            }
-        });
-        alert_gallery.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                Open_Gallery(v);
-                alertDialog.dismiss();
-            }
-        });
-        alertDialog.show();
     }
 
     // open camera to take picture for ocr
@@ -169,7 +134,9 @@ public class MainActivity extends AppCompatActivity implements AdapterView.OnIte
         intent = new Intent();
         intent.setType("image/*");
         intent.setAction(Intent.ACTION_GET_CONTENT);
-        startActivityForResult(intent, PICK_FROM_GALLERY);
+        if (intent.resolveActivity(getPackageManager()) != null) {
+            startActivityForResult(intent, PICK_FROM_GALLERY);
+        }
     }
 
     @Override
@@ -188,7 +155,7 @@ public class MainActivity extends AppCompatActivity implements AdapterView.OnIte
                     cursor.close();
 
                     imageView.setImageBitmap(bitmap);
-                    processImageData();
+                    processImageData(bitmap);
                     break;
                 }
                 case PICK_FROM_CAMERA: {
@@ -213,17 +180,13 @@ public class MainActivity extends AppCompatActivity implements AdapterView.OnIte
                         int orientation = exifObject.getAttributeInt(ExifInterface.TAG_ORIENTATION, ExifInterface.ORIENTATION_UNDEFINED);
                         Bitmap imageRotate = rotateBitmap(bitmap,orientation);
                         imageView.setImageBitmap(imageRotate);
+                        this.bitmap=imageRotate;
+                        processImageData(bitmap);
                     }else{
-                        Toast.makeText(MainActivity.this, "Image photo is not yet set", Toast.LENGTH_LONG).show();
+                        Something_went_wrong("Image photo is not yet set");
                     }
+                    break;
 
-                    //imageView.setImageBitmap(bitmap);
-                    processImageData();
-                    break;
-                }
-                case openContactAndAddData: {
-                    Toast.makeText(getApplicationContext(), "Thanks for using our "+getAppName, Toast.LENGTH_LONG).show();
-                    break;
                 }
             }
         }
@@ -276,31 +239,27 @@ public class MainActivity extends AppCompatActivity implements AdapterView.OnIte
     //get intent details
     public Uri getImageUri(Context inContext, Bitmap inImage) {
         ByteArrayOutputStream bytes = new ByteArrayOutputStream();
-        inImage.compress(Bitmap.CompressFormat.JPEG, 100, bytes);
         String path = MediaStore.Images.Media.insertImage(inContext.getContentResolver(), inImage, "Title", null);
         return Uri.parse(path);
     }
 
     //extract image
-    public void processImageData(){
-        String OCRresult = null;
+    public void processImageData(Bitmap bitmap){
+        this.bitmap=bitmap;
         mTess.setImage(bitmap);
         OCRresult = mTess.getUTF8Text();
         str = OCRresult.split("\n");
-
         al = new ArrayList<String>();
         for(String s: str) {
-            if(s.trim().length() > 0) {
+            if((s.trim().length() > 0) || (!s.isEmpty())) {
                 al.add(s);
             }
         }
-
         if(OCRresult.length()==0){
-            Toast.makeText(getApplicationContext(), "Sorry, we could not find any text in your image", Toast.LENGTH_LONG).show();
+            Something_went_wrong("Sorry, we could not find any text in your image");
         }
         else {
             id=0;
-            add_match=new ArrayList<>();
             Layouttime = (LinearLayout) findViewById(R.id.OCRTextContainer);
             StoreValues.clear();
             storeParameter.clear();
@@ -315,10 +274,10 @@ public class MainActivity extends AppCompatActivity implements AdapterView.OnIte
         }
     }
 
+    //data validation while parsing
     public void validation(String s){
         //company name and domain name
         if ((s.contains("@")==false)&&(s.contains("."))){
-            String com=null;
             //Website
             Matcher Website =  Pattern.compile("(?:[a-z-]+\\.)+[a-z-]+").matcher(s);
             while (Website.find()) {
@@ -346,6 +305,7 @@ public class MainActivity extends AppCompatActivity implements AdapterView.OnIte
             showLayout(s,0);
         }
     }
+
     //identify phone number from string
     boolean checkNumber(String s){
         int count = 0;
@@ -354,17 +314,16 @@ public class MainActivity extends AppCompatActivity implements AdapterView.OnIte
                 count++;
             }
         }
-        if(count>=7)
+        if(count>=7) {
             return true;
-
+        }
         return false;
     }
 
     public void showLayout(String s,int i){
         layoutView = new LinearLayout(this);
         layoutView.setOrientation(LinearLayout.HORIZONTAL);
-        layoutView.setId(id);
-
+        //Spinner field data binding
         spinner = new Spinner(this);
         spinner.setOnItemSelectedListener(this);
         spinnerArrayAdapter = new ArrayAdapter(this, android.R.layout.simple_spinner_item, Parameter);
@@ -373,21 +332,32 @@ public class MainActivity extends AppCompatActivity implements AdapterView.OnIte
         spinner.setSelection(i);
         spinner.setId(id);
         storeParameter.add(spinner.getItemAtPosition(i).toString());
-        //spinnerArrayAdapter.notifyDataSetChanged();
         layoutView.addView(spinner);
-
+        //EditText field data binding
         e_mail = new EditText(this);
         e_mail.setLayoutParams(new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
         e_mail.setText(s);
         e_mail.setId(id);
         StoreValues.add(s);
         layoutView.addView(e_mail);
-
         Layouttime.addView(layoutView);
-
+        //increament id to create number of view
         id++;
-
     }
+
+    @Override
+    public void onItemSelected(AdapterView<?> parent, View views, int position,long id) {
+        String checkdata=Parameter[position];
+        if(checkdata.equals("COMPANY"))
+        {
+            String values= StoreValues.get(parent.getId()).replaceAll("[^A-Za-z0-9\\s]","");
+            StoreValues.set(parent.getId(),values);
+        }
+        storeParameter.set(parent.getId(),Parameter[position]);
+    }
+
+    @Override
+    public void onNothingSelected(AdapterView<?> arg0) {}
 
     //now add all data in phone book
     public void Add_Data_In_Contacts_List(){
@@ -401,42 +371,33 @@ public class MainActivity extends AppCompatActivity implements AdapterView.OnIte
 
                 if(storeParameter.get(file).equals("NAME")){
                     NAME+=StoreValues.get(file).toString();
-                    Log.d("getData",storeParameter.get(file)+"-"+NAME);
                 }
                 if(storeParameter.get(file).equals("PHONE")){
                     if(count==0) {
                         PHONE = StoreValues.get(file).toString();
-                        Log.d("getData",storeParameter.get(file)+"-"+PHONE);
                     }
                     if (count==1){
                         SECONDARY_PHONE = StoreValues.get(file).toString();
-                        Log.d("getData",storeParameter.get(file)+"-"+SECONDARY_PHONE);
                     }
                     count++;
                 }
                 if(storeParameter.get(file).equals("EMAIL")){
                     EMAIL+=StoreValues.get(file).toString();
-                    Log.d("getData",storeParameter.get(file)+"-"+EMAIL);
                 }
                 if(storeParameter.get(file).equals("COMPANY")){
                     COMPANY+=StoreValues.get(file);
-                    Log.d("getData",storeParameter.get(file)+"-"+COMPANY);
                 }
                 if(storeParameter.get(file).equals("JOB_TITLE")){
                     JOB_TITLE+=StoreValues.get(file).toString();
-                    Log.d("getData",storeParameter.get(file)+"-"+JOB_TITLE);
                 }
                 if(storeParameter.get(file).equals("POSTAL")){
                     POSTAL+=StoreValues.get(file).toString();
-                    Log.d("getData",storeParameter.get(file)+"-"+POSTAL);
                 }
                 if(storeParameter.get(file).equals("URL")){
                     IM_PROTOCOL+=StoreValues.get(file).toString();
-                    Log.d("getData",storeParameter.get(file)+"-"+IM_PROTOCOL);
                 }
                 if(storeParameter.get(file).equals("OTHERs")){
                     DATA+=StoreValues.get(file).toString();
-                    Log.d("getData",storeParameter.get(file)+"-"+DATA);
                 }
             }
             intent = new Intent(ContactsContract.Intents.Insert.ACTION);
@@ -452,28 +413,15 @@ public class MainActivity extends AppCompatActivity implements AdapterView.OnIte
                     .putExtra(ContactsContract.Intents.Insert.IM_PROTOCOL,IM_PROTOCOL)//insert name of person
                     .putExtra(ContactsContract.Intents.Insert.DATA, DATA);//insert name of person
 
-            packageManager = this.getPackageManager();
-            if (intent.resolveActivity(packageManager) != null) {
+            if (intent.resolveActivity(getPackageManager()) != null) {
                 startActivity(intent);
             } else {
-                Something_went_wrong();
+                Something_went_wrong("Unable to start service Intent");
             }
         }else {
-            Something_went_wrong();
+            Something_went_wrong("Sorry, we could not find any text in your image");
         }
     }
-
-    @Override
-    public void onItemSelected(AdapterView<?> parent, View views, int position,long id) {
-
-
-        storeParameter.set(parent.getId(),Parameter[position]);
-        Log.d("getData1",storeParameter.get(parent.getId())+"-"+parent.getId());
-
-    }
-
-    @Override
-    public void onNothingSelected(AdapterView<?> arg0) {}
 
     //authontication
     private void checkFile(File dir) {
@@ -522,8 +470,15 @@ public class MainActivity extends AppCompatActivity implements AdapterView.OnIte
     }
 
     //error
-    public void Something_went_wrong(){
-        Toast.makeText(this,"Something went wrong ! try again",Toast.LENGTH_LONG).show();
+    public void Something_went_wrong(String s){
+        String message="";
+        if(s.isEmpty()) {
+            message = "Something went wrong ! try again";
+        }
+        else {
+            message=s;
+        }
+        Toast.makeText(this,message,Toast.LENGTH_LONG).show();
     }
 
     @Override
@@ -543,5 +498,4 @@ public class MainActivity extends AppCompatActivity implements AdapterView.OnIte
         }
         return super.onOptionsItemSelected(item);
     }
-
 }
