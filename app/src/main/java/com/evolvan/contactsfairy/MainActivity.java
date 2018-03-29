@@ -1,8 +1,6 @@
 package com.evolvan.contactsfairy;
 
 import android.app.AlertDialog;
-import android.app.ProgressDialog;
-import android.content.ActivityNotFoundException;
 import android.content.Context;
 import android.content.Intent;
 import android.content.res.AssetManager;
@@ -14,7 +12,6 @@ import android.graphics.Matrix;
 import android.graphics.drawable.ColorDrawable;
 import android.media.ExifInterface;
 import android.net.Uri;
-import android.os.Handler;
 import android.provider.ContactsContract;
 import android.provider.MediaStore;
 import android.support.v7.app.AppCompatActivity;
@@ -44,29 +41,26 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-
 import de.hdodenhof.circleimageview.CircleImageView;
 
 public class MainActivity extends AppCompatActivity implements AdapterView.OnItemSelectedListener{
-    String[] Parameter = { "SELECT","NAME", "PHONE", "EMAIL", "COMPANY" ,"JOB_TITLE", "POSTAL","URL","OTHERs"},str,store_Intent_Values;
+    String[] Parameter = { "SELECT","NAME", "PHONE", "EMAIL", "COMPANY" ,"JOB_TITLE", "ADDRESS","URL"},store_Intent_Values;
     private static final int PICK_FROM_CAMERA = 123,PICK_FROM_GALLERY = 159, TIME_DELAY = 2000;
     private static long back_pressed;
     Intent intent;
     Bitmap bitmap;
     private TessBaseAPI mTess;
-    String datapath = "",getAppName,language = "eng",com="",OCRresult="";
-    String NAME="",PHONE="",SECONDARY_PHONE="",EMAIL="",COMPANY="",JOB_TITLE="",POSTAL="",IM_PROTOCOL="",DATA="";
+    String datapath = "",getAppName,language = "eng",OCRresult="";
     LinearLayout Layouttime,layoutView;
     EditText e_mail;
     ImageView zoom_image,ButtonCancel;
-    CircleImageView imageView;
+    CircleImageView ImageView;
     LayoutInflater layoutInflater;
     AlertDialog alertDialog;
     AlertDialog.Builder alertDialogBuilder;
     Spinner spinner;
     ArrayAdapter spinnerArrayAdapter;
     private Menu menu;
-    List<String> al;
     int id=0;
     List<String> StoreValues = new ArrayList<String>();
     List<String>storeParameter=new ArrayList<>();
@@ -76,7 +70,8 @@ public class MainActivity extends AppCompatActivity implements AdapterView.OnIte
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
         getAppName=getString(R.string.app_name);
-        imageView=(CircleImageView)findViewById(R.id.ImageView);
+        ImageView =(CircleImageView)findViewById(R.id.ImageView);
+        Layouttime = (LinearLayout) findViewById(R.id.OCRTextContainer);
         //initialize Tesseract API
         datapath = getFilesDir()+ "/tesseract/";
         mTess = new TessBaseAPI();
@@ -84,6 +79,7 @@ public class MainActivity extends AppCompatActivity implements AdapterView.OnIte
         mTess.init(datapath, language);
     }
 
+    //restrict application to close on back press
     @Override
     public void onBackPressed() {
         if (back_pressed + TIME_DELAY > System.currentTimeMillis()) {
@@ -105,7 +101,7 @@ public class MainActivity extends AppCompatActivity implements AdapterView.OnIte
         alertDialog = alertDialogBuilder.create();
         alertDialog.getWindow().setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT));
         zoom_image = (ImageView) zoomImage.findViewById(R.id.zoom_image);
-        if(bitmap!=null) {
+        if(checkBitMap()) {
             zoom_image.setImageBitmap(bitmap);
         }
         else {
@@ -119,6 +115,13 @@ public class MainActivity extends AppCompatActivity implements AdapterView.OnIte
                 }
             });
             alertDialog.show();
+    }
+
+    //check bitmap have data or not
+    public boolean checkBitMap(){
+        if(bitmap!=null)
+            return true;
+        return false;
     }
 
     // open camera to take picture for ocr
@@ -139,6 +142,7 @@ public class MainActivity extends AppCompatActivity implements AdapterView.OnIte
         }
     }
 
+    //check intent select / capture image returning or not
     @Override
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         if(resultCode == RESULT_OK && null != data) {
@@ -154,8 +158,10 @@ public class MainActivity extends AppCompatActivity implements AdapterView.OnIte
                     bitmap = BitmapFactory.decodeFile(imagePath, options);
                     cursor.close();
 
-                    imageView.setImageBitmap(bitmap);
-                    processImageData(bitmap);
+                    ImageView.setImageBitmap(bitmap);
+                    if(checkBitMap()){
+                        processImageData();
+                    }
                     break;
                 }
                 case PICK_FROM_CAMERA: {
@@ -168,25 +174,25 @@ public class MainActivity extends AppCompatActivity implements AdapterView.OnIte
                     String imagePath = cursor.getString(cursor.getColumnIndex(filePath[0]));
                     BitmapFactory.Options options = new BitmapFactory.Options();
                     options.inPreferredConfig = Bitmap.Config.ARGB_8888;
-                    bitmap = BitmapFactory.decodeFile(imagePath, options);
+                    Bitmap bitmap11 = BitmapFactory.decodeFile(imagePath, options);
                     cursor.close();
 
-                    if(imageView.getDrawable() != null){
+                    if(ImageView.getDrawable() != null){
                         try {
                             exifObject = new ExifInterface(imagePath);
                         } catch (IOException e) {
                             e.printStackTrace();
                         }
                         int orientation = exifObject.getAttributeInt(ExifInterface.TAG_ORIENTATION, ExifInterface.ORIENTATION_UNDEFINED);
-                        Bitmap imageRotate = rotateBitmap(bitmap,orientation);
-                        imageView.setImageBitmap(imageRotate);
-                        this.bitmap=imageRotate;
-                        processImageData(bitmap);
+                        bitmap = rotateBitmap(bitmap11,orientation);
+                        ImageView.setImageBitmap(bitmap);
+                        if(checkBitMap()){
+                            processImageData();
+                        }
                     }else{
                         Something_went_wrong("Image photo is not yet set");
                     }
                     break;
-
                 }
             }
         }
@@ -244,70 +250,87 @@ public class MainActivity extends AppCompatActivity implements AdapterView.OnIte
     }
 
     //extract image
-    public void processImageData(Bitmap bitmap){
-        this.bitmap=bitmap;
+    public void processImageData(){
+        String[] str=null;
+        StoreValues.clear();
+        storeParameter.clear();
+        id=0;
+        Layouttime.removeAllViews();
+
         mTess.setImage(bitmap);
         OCRresult = mTess.getUTF8Text();
         str = OCRresult.split("\n");
-        al = new ArrayList<String>();
-        for(String s: str) {
-            if((s.trim().length() > 0) || (!s.isEmpty())) {
-                al.add(s);
+        if(OCRresult.length()!=0){
+            for(String s: str) {
+                if((s.trim().length() > 0) || (!s.isEmpty())) {
+                    validation(s);
+                }
             }
-        }
-        if(OCRresult.length()==0){
+            MenuItem item = menu.findItem(R.id.action_create);
+            item.setVisible(true);
+        } else {
             Something_went_wrong("Sorry, we could not find any text in your image");
         }
-        else {
-            id=0;
-            Layouttime = (LinearLayout) findViewById(R.id.OCRTextContainer);
-            StoreValues.clear();
-            storeParameter.clear();
-            Layouttime.removeAllViews();
-            for(String s: al){
-                validation(s);
-            }
-            if(al.size()>0) {
-                MenuItem item = menu.findItem(R.id.action_create);
-                item.setVisible(true);
-            }
-        }
+
     }
 
     //data validation while parsing
     public void validation(String s){
-        //company name and domain name
-        if ((s.contains("@")==false)&&(s.contains("."))){
-            //Website
-            Matcher Website =  Pattern.compile("(?:[a-z-]+\\.)+[a-z-]+").matcher(s);
-            while (Website.find()) {
-                showLayout(Website.group(),7);
-                com=Website.group();
-            }
-            if(!com.isEmpty()){
-                String[] split=com.split("\\.",2);
-                String tore=split[0];
-                showLayout(tore,4);
-            }
+        //validate NAME from string 1
+        if(!checkName(s).isEmpty()){
+            showLayout(s,1);
         }
-
-        //phone number
-        else if(checkNumber(s)) {
-            String cc=s.replaceAll("[^+\\d]","");
-            showLayout(cc, 2);
+        //validate PHONE from string  2
+        else if(!checkNumber(s).isEmpty()){
+            showLayout(s,2);
         }
-        //email id
-        else if(s.contains("@")){
+        //validate EMAIL from string 3
+        else if (!checkEmail(s).isEmpty()){
             showLayout(s,3);
         }
-        // not varify
+        //validate COMPANY from string 4
+        else if (!checkCompany(s).isEmpty()){
+            showLayout(s,4);
+        }
+        //validate JOB_TITLE from string 5
+        else if (!checkJobTitle(s).isEmpty()){
+            showLayout(s,5);
+        }
+        //validate POSTAL from string 6
+        else if (!checkPostal(s).isEmpty()){
+            showLayout(s,6);
+        }
+        //validate URL from string 7
+        else if (!checkUrl(s).isEmpty()){
+            showLayout(s,7);
+        }
+        //validate not Validate from string  0
         else {
-            showLayout(s,0);
+            showLayout(s, 0);
         }
     }
 
-    //identify phone number from string
-    boolean checkNumber(String s){
+    //validate NAME from string 1
+    public String checkName(String s){
+        Pattern p = Pattern.compile("[^a-z0-9 ]", Pattern.CASE_INSENSITIVE);
+        Matcher m = p.matcher(s);
+        boolean b = m.find();
+        if (!b) {
+            int count = 0;
+            for (int i = 0, len = s.length(); i < len; i++) {
+                if (Character.isUpperCase(s.codePointAt(0))) {
+                    count++;
+                }
+            }
+            if (count >=1) {
+                return s;
+            }
+        }
+        return "";
+    }
+
+    //validate PHONE from string  2
+    public String checkNumber(String s){
         int count = 0;
         for (int i = 0, len = s.length(); i < len; i++) {
             if (Character.isDigit(s.charAt(i))) {
@@ -315,11 +338,60 @@ public class MainActivity extends AppCompatActivity implements AdapterView.OnIte
             }
         }
         if(count>=7) {
-            return true;
+            return s;
         }
-        return false;
+        return "";
     }
 
+    //validate EMAIL from string 3
+    public String checkEmail(String s){
+        if(s.contains("@") && s.contains(".")){
+            return s;
+        }
+        return  "";
+    }
+
+    //validate COMPANY from string 4
+    public String checkCompany(String s){
+        if(!s.contains(".")&& !s.contains("'") && !s.contains(",")&& !s.matches("-?\\d+")) {
+            String[] arr = s.split(" ");
+            if (arr.length != 1) {
+                for (int i = 0; i < s.length(); i++) {
+                    if (Character.isUpperCase(s.charAt(i))) {
+                        return s;
+                    }
+                }
+            }
+        }
+        return  "";
+    }
+
+    //validate JOB_TITLE from string 5
+    public String checkJobTitle(String s){
+        Matcher NameMatcher =  Pattern.compile("\\\"([^\\\"\\n\\r]*)\\\"").matcher(s);
+        while (NameMatcher.find()) {
+            return NameMatcher.group();
+        }
+        return  "";
+    }
+
+    //validate POSTAL from string 6
+    public String checkPostal(String s){
+        if(s.contains(",")){
+            return s;
+        }
+        return  "";
+    }
+
+    //validate URL from string 7
+    public String checkUrl(String s){
+        if((s.contains("https")||s.contains("www")) ||(!s.contains("@")&& s.contains("."))){
+            return s;
+        }
+        return  "";
+    }
+
+    //show output in dynamic layout
     public void showLayout(String s,int i){
         layoutView = new LinearLayout(this);
         layoutView.setOrientation(LinearLayout.HORIZONTAL);
@@ -338,6 +410,7 @@ public class MainActivity extends AppCompatActivity implements AdapterView.OnIte
         e_mail.setLayoutParams(new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
         e_mail.setText(s);
         e_mail.setId(id);
+
         StoreValues.add(s);
         layoutView.addView(e_mail);
         Layouttime.addView(layoutView);
@@ -345,29 +418,24 @@ public class MainActivity extends AppCompatActivity implements AdapterView.OnIte
         id++;
     }
 
+    //validate when spinner item get change
     @Override
     public void onItemSelected(AdapterView<?> parent, View views, int position,long id) {
-        String checkdata=Parameter[position];
-        if(checkdata.equals("COMPANY"))
-        {
-            String values= StoreValues.get(parent.getId()).replaceAll("[^A-Za-z0-9\\s]","");
-            StoreValues.set(parent.getId(),values);
-        }
         storeParameter.set(parent.getId(),Parameter[position]);
+        Log.d("printdata","item-"+storeParameter.get(parent.getId()));
     }
 
+    //notify  when spinner item get change
     @Override
     public void onNothingSelected(AdapterView<?> arg0) {}
 
     //now add all data in phone book
     public void Add_Data_In_Contacts_List(){
-
+        String NAME="",PHONE="",SECONDARY_PHONE="",EMAIL="",COMPANY="",JOB_TITLE="",ADDRESS="",IM_PROTOCOL="",DATA="";
         if(StoreValues.size()>=0) {
             int count=0;
             store_Intent_Values=new String[StoreValues.size()];
             for(int file=0;file<StoreValues.size();file++) {
-
-                Log.d("getData", storeParameter.get(file) + "-" + StoreValues.get(file).toString());
 
                 if(storeParameter.get(file).equals("NAME")){
                     NAME+=StoreValues.get(file).toString();
@@ -390,8 +458,8 @@ public class MainActivity extends AppCompatActivity implements AdapterView.OnIte
                 if(storeParameter.get(file).equals("JOB_TITLE")){
                     JOB_TITLE+=StoreValues.get(file).toString();
                 }
-                if(storeParameter.get(file).equals("POSTAL")){
-                    POSTAL+=StoreValues.get(file).toString();
+                if(storeParameter.get(file).equals("ADDRESS")){
+                    ADDRESS+=StoreValues.get(file).toString();
                 }
                 if(storeParameter.get(file).equals("URL")){
                     IM_PROTOCOL+=StoreValues.get(file).toString();
@@ -409,7 +477,7 @@ public class MainActivity extends AppCompatActivity implements AdapterView.OnIte
                     .putExtra(ContactsContract.Intents.Insert.EMAIL, EMAIL)//insert email address of person
                     .putExtra(ContactsContract.Intents.Insert.COMPANY, COMPANY)//insert name of person
                     .putExtra(ContactsContract.Intents.Insert.JOB_TITLE, JOB_TITLE)//insert name of person
-                    .putExtra(ContactsContract.Intents.Insert.POSTAL, POSTAL)//insert name of person
+                    .putExtra(ContactsContract.Intents.Insert.POSTAL, ADDRESS)//insert name of person
                     .putExtra(ContactsContract.Intents.Insert.IM_PROTOCOL,IM_PROTOCOL)//insert name of person
                     .putExtra(ContactsContract.Intents.Insert.DATA, DATA);//insert name of person
 
@@ -481,6 +549,7 @@ public class MainActivity extends AppCompatActivity implements AdapterView.OnIte
         Toast.makeText(this,message,Toast.LENGTH_LONG).show();
     }
 
+    //create menu dynamically
     @Override
     public boolean onCreateOptionsMenu(Menu menu) {
         this.menu = menu;
@@ -489,6 +558,7 @@ public class MainActivity extends AppCompatActivity implements AdapterView.OnIte
         return true;
     }
 
+    //on click menu item open phone book to save contacts
     @Override
     public boolean onOptionsItemSelected(MenuItem item) {
         int id = item.getItemId();
