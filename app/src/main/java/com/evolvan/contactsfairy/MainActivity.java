@@ -1,36 +1,38 @@
 package com.evolvan.contactsfairy;
 
+import android.annotation.SuppressLint;
+import android.app.Activity;
 import android.app.AlertDialog;
-import android.content.Context;
+import android.app.ProgressDialog;
 import android.content.Intent;
+import android.content.pm.PackageManager;
 import android.content.res.AssetManager;
-import android.database.Cursor;
 import android.graphics.Bitmap;
-import android.graphics.BitmapFactory;
 import android.graphics.Color;
-import android.graphics.Matrix;
+import android.graphics.drawable.BitmapDrawable;
 import android.graphics.drawable.ColorDrawable;
-import android.media.ExifInterface;
 import android.net.Uri;
+import android.os.AsyncTask;
 import android.provider.ContactsContract;
-import android.provider.MediaStore;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
-import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
 import android.view.ViewGroup;
+import android.view.inputmethod.EditorInfo;
 import android.widget.AdapterView;
 import android.widget.ArrayAdapter;
 import android.widget.EditText;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.Spinner;
+import android.widget.TextView;
 import android.widget.Toast;
 import com.googlecode.tesseract.android.TessBaseAPI;
-import java.io.ByteArrayOutputStream;
+import com.theartofdev.edmodo.cropper.CropImage;
+import com.theartofdev.edmodo.cropper.CropImageView;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
@@ -43,40 +45,50 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import de.hdodenhof.circleimageview.CircleImageView;
 
+import static android.Manifest.permission.CAMERA;
+import static android.Manifest.permission.READ_CONTACTS;
+import static android.Manifest.permission.READ_EXTERNAL_STORAGE;
+import static android.Manifest.permission.WRITE_CONTACTS;
+import static android.Manifest.permission.WRITE_EXTERNAL_STORAGE;
+import static android.Manifest.permission.WRITE_SETTINGS;
+
 public class MainActivity extends AppCompatActivity implements AdapterView.OnItemSelectedListener{
+
+    private ProgressDialog progressDialog;
     String[] Parameter = { "SELECT","NAME", "PHONE", "EMAIL", "COMPANY" ,"JOB_TITLE", "ADDRESS","URL"},store_Intent_Values;
-    private static final int PICK_FROM_CAMERA = 123,PICK_FROM_GALLERY = 159, TIME_DELAY = 2000;
+    private static final int TIME_DELAY = 2000;
     private static long back_pressed;
     Intent intent;
     Bitmap bitmap;
-    private TessBaseAPI mTess;
+    private TessBaseAPI tessBaseAPI;
     String datapath = "",getAppName,language = "eng",OCRresult="";
-    LinearLayout Layouttime,layoutView;
-    EditText e_mail;
-    ImageView zoom_image,ButtonCancel;
+    LinearLayout OCRTextContainer,layoutView;
+    EditText editText;
+    TextView notice;
     CircleImageView ImageView;
-    LayoutInflater layoutInflater;
-    AlertDialog alertDialog;
-    AlertDialog.Builder alertDialogBuilder;
     Spinner spinner;
     ArrayAdapter spinnerArrayAdapter;
     private Menu menu;
     int id=0;
     List<String> StoreValues = new ArrayList<String>();
     List<String>storeParameter=new ArrayList<>();
-    private ExifInterface exifObject;
+    private Uri mCropImageUri;
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
+
+        progressDialog = new ProgressDialog(this);
+
         getAppName=getString(R.string.app_name);
         ImageView =(CircleImageView)findViewById(R.id.ImageView);
-        Layouttime = (LinearLayout) findViewById(R.id.OCRTextContainer);
+        notice=(TextView)findViewById(R.id.notice);
+        OCRTextContainer = (LinearLayout) findViewById(R.id.OCRTextContainer);
         //initialize Tesseract API
         datapath = getFilesDir()+ "/tesseract/";
-        mTess = new TessBaseAPI();
+        tessBaseAPI = new TessBaseAPI();
         checkFile(new File(datapath + "tessdata/"));
-        mTess.init(datapath, language);
+        tessBaseAPI.init(datapath, language);
     }
 
     //restrict application to close on back press
@@ -90,175 +102,73 @@ public class MainActivity extends AppCompatActivity implements AdapterView.OnIte
         back_pressed = System.currentTimeMillis();
     }
 
-    //on click image zoomm it
-    public void zoom_Image(View zoomImage){
-        layoutInflater = LayoutInflater.from(this);
-        zoomImage = layoutInflater.inflate(R.layout.zoom_view, null);
-        alertDialogBuilder = new AlertDialog.Builder(this);
-        // set prompts.xml to alertdialog notification
-        alertDialogBuilder.setView(zoomImage);
-        // create alert dialog
-        alertDialog = alertDialogBuilder.create();
-        alertDialog.getWindow().setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT));
-        zoom_image = (ImageView) zoomImage.findViewById(R.id.zoom_image);
-        if(checkBitMap()) {
-            zoom_image.setImageBitmap(bitmap);
-        }
-        else {
-            zoom_image.setImageDrawable(getResources().getDrawable(R.drawable.show_image));
-        }
-        ButtonCancel = (ImageView) zoomImage.findViewById(R.id.ButtonCancel);
-        ButtonCancel.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View view) {
-                    alertDialog.cancel();
-                }
-            });
-            alertDialog.show();
-    }
-
-    //check bitmap have data or not
-    public boolean checkBitMap(){
-        if(bitmap!=null)
-            return true;
-        return false;
-    }
-
     // open camera to take picture for ocr
-    public void Open_Camera(View OpenCamera){
-        intent = new Intent(android.provider.MediaStore.ACTION_IMAGE_CAPTURE);
-        if (intent.resolveActivity(getPackageManager()) != null) {
-            startActivityForResult(intent, PICK_FROM_CAMERA);
-        }
+    public void Choose_Image_Camera(View view){
+        CropImage.startPickImageActivity(this);
     }
 
-    //open gallery to select image to extract text
-    public void Open_Gallery(View OpenGallery){
-        intent = new Intent();
-        intent.setType("image/*");
-        intent.setAction(Intent.ACTION_GET_CONTENT);
-        if (intent.resolveActivity(getPackageManager()) != null) {
-            startActivityForResult(intent, PICK_FROM_GALLERY);
-        }
-    }
-
-    //check intent select / capture image returning or not
+    //check result after redirecting  image crop ot select from gallery
     @Override
+    @SuppressLint("NewApi")
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
-        if(resultCode == RESULT_OK && null != data) {
-            switch (requestCode) {
-                case PICK_FROM_GALLERY: {
-                    Uri pickedImage = data.getData();
-                    String[] filePath = { MediaStore.Images.Media.DATA };
-                    Cursor cursor = getContentResolver().query(pickedImage, filePath, null, null, null);
-                    cursor.moveToFirst();
-                    String imagePath = cursor.getString(cursor.getColumnIndex(filePath[0]));
-                    BitmapFactory.Options options = new BitmapFactory.Options();
-                    options.inPreferredConfig = Bitmap.Config.ARGB_8888;
-                    bitmap = BitmapFactory.decodeFile(imagePath, options);
-                    cursor.close();
 
-                    ImageView.setImageBitmap(bitmap);
-                    if(checkBitMap()){
-                        processImageData();
-                    }
-                    break;
-                }
-                case PICK_FROM_CAMERA: {
-                    Bundle extras = data.getExtras();
-                    Bitmap bitmap1 = (Bitmap) extras.get("data");
-                    Uri tempUri = getImageUri(getApplicationContext(), bitmap1);
-                    String[] filePath = { MediaStore.Images.Media.DATA };
-                    Cursor cursor = getContentResolver().query(tempUri, filePath, null, null, null);
-                    cursor.moveToFirst();
-                    String imagePath = cursor.getString(cursor.getColumnIndex(filePath[0]));
-                    BitmapFactory.Options options = new BitmapFactory.Options();
-                    options.inPreferredConfig = Bitmap.Config.ARGB_8888;
-                    Bitmap bitmap11 = BitmapFactory.decodeFile(imagePath, options);
-                    cursor.close();
+        // handle result of pick image chooser
+        if (requestCode == CropImage.PICK_IMAGE_CHOOSER_REQUEST_CODE && resultCode == Activity.RESULT_OK) {
+            Uri imageUri = CropImage.getPickImageResultUri(this, data);
 
-                    if(ImageView.getDrawable() != null){
-                        try {
-                            exifObject = new ExifInterface(imagePath);
-                        } catch (IOException e) {
-                            e.printStackTrace();
-                        }
-                        int orientation = exifObject.getAttributeInt(ExifInterface.TAG_ORIENTATION, ExifInterface.ORIENTATION_UNDEFINED);
-                        bitmap = rotateBitmap(bitmap11,orientation);
-                        ImageView.setImageBitmap(bitmap);
-                        if(checkBitMap()){
-                            processImageData();
-                        }
-                    }else{
-                        Something_went_wrong("Image photo is not yet set");
-                    }
-                    break;
-                }
+            // For API >= 23 we need to check specifically that we have permissions to read external storage.
+            if (CropImage.isReadExternalStoragePermissionsRequired(this, imageUri)) {
+                // request permissions and handle the result in onRequestPermissionsResult()
+                mCropImageUri = imageUri;
+                requestPermissions(new String[]{READ_EXTERNAL_STORAGE,WRITE_EXTERNAL_STORAGE,CAMERA,READ_CONTACTS,WRITE_CONTACTS,WRITE_SETTINGS}, 0);
+            } else {
+                // no permissions required or already grunted, can start crop image activity
+                startCropImageActivity(imageUri);
+            }
+        }
+
+        // handle result of CropImageActivity
+        if (requestCode == CropImage.CROP_IMAGE_ACTIVITY_REQUEST_CODE) {
+            CropImage.ActivityResult result = CropImage.getActivityResult(data);
+            if (resultCode == RESULT_OK) {
+                ((ImageView) findViewById(R.id.ImageView)).setImageURI(result.getUri());
+                new ImageExtracting().execute("");
+            } else if (resultCode == CropImage.CROP_IMAGE_ACTIVITY_RESULT_ERROR_CODE) {
+                Toast.makeText(this, "Cropping failed: " + result.getError(), Toast.LENGTH_LONG).show();
             }
         }
     }
 
-    //Image oriantation
-    public static Bitmap rotateBitmap(Bitmap bitmap, int orientation) {
-        Matrix matrix = new Matrix();
-        switch (orientation) {
-            case ExifInterface.ORIENTATION_NORMAL:
-                return bitmap;
-            case ExifInterface.ORIENTATION_FLIP_HORIZONTAL:
-                matrix.setScale(-1, 1);
-                break;
-            case ExifInterface.ORIENTATION_ROTATE_180:
-                matrix.setRotate(180);
-                break;
-            case ExifInterface.ORIENTATION_FLIP_VERTICAL:
-                matrix.setRotate(180);
-                matrix.postScale(-1, 1);
-                break;
-            case ExifInterface.ORIENTATION_TRANSPOSE:
-                matrix.setRotate(90);
-                matrix.postScale(-1, 1);
-                break;
-            case ExifInterface.ORIENTATION_ROTATE_90:
-                matrix.setRotate(90);
-                break;
-            case ExifInterface.ORIENTATION_TRANSVERSE:
-                matrix.setRotate(-90);
-                matrix.postScale(-1, 1);
-                break;
-            case ExifInterface.ORIENTATION_ROTATE_270:
-                matrix.setRotate(-90);
-                break;
-            default:
-                return bitmap;
+    @Override
+    public void onRequestPermissionsResult(int requestCode, String permissions[], int[] grantResults) {
+        if (mCropImageUri != null && grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+            // required permissions granted, start crop image activity
+            startCropImageActivity(mCropImageUri);
         }
-        try {
-            Bitmap bmRotated = Bitmap.createBitmap(bitmap, 0, 0, bitmap.getWidth(), bitmap.getHeight(), matrix, true);
-            bitmap.recycle();
-            return bmRotated;
-        }
-        catch (OutOfMemoryError e) {
-            e.printStackTrace();
-            return null;
+        else {
+            Toast.makeText(this, "Cancelling, required permissions are not granted", Toast.LENGTH_LONG).show();
         }
     }
 
-    //get intent details
-    public Uri getImageUri(Context inContext, Bitmap inImage) {
-        ByteArrayOutputStream bytes = new ByteArrayOutputStream();
-        String path = MediaStore.Images.Media.insertImage(inContext.getContentResolver(), inImage, "Title", null);
-        return Uri.parse(path);
+    /**
+     * Start crop image activity for the given image.
+     */
+    private void startCropImageActivity(Uri imageUri) {
+        CropImage.activity(imageUri).setGuidelines(CropImageView.Guidelines.ON).setMultiTouchEnabled(true).start(this);
     }
 
     //extract image
     public void processImageData(){
+        BitmapDrawable drawable = (BitmapDrawable) ImageView.getDrawable();
+        bitmap = drawable.getBitmap();
         String[] str=null;
         StoreValues.clear();
         storeParameter.clear();
         id=0;
-        Layouttime.removeAllViews();
+        OCRTextContainer.removeAllViews();
 
-        mTess.setImage(bitmap);
-        OCRresult = mTess.getUTF8Text();
+        tessBaseAPI.setImage(bitmap);
+        OCRresult = tessBaseAPI.getUTF8Text();
         str = OCRresult.split("\n");
         if(OCRresult.length()!=0){
             for(String s: str) {
@@ -345,7 +255,7 @@ public class MainActivity extends AppCompatActivity implements AdapterView.OnIte
 
     //validate EMAIL from string 3
     public String checkEmail(String s){
-        if(s.contains("@") && s.contains(".")){
+        if((s.contains("@") || s.contains("\\u00a9")) && s.contains(".")){
             return s;
         }
         return  "";
@@ -368,7 +278,7 @@ public class MainActivity extends AppCompatActivity implements AdapterView.OnIte
 
     //validate JOB_TITLE from string 5
     public String checkJobTitle(String s){
-        Matcher NameMatcher =  Pattern.compile("\\\"([^\\\"\\n\\r]*)\\\"").matcher(s);
+        Matcher NameMatcher =  Pattern.compile("\"\\'\",\"\\'\\'\"").matcher(s);
         while (NameMatcher.find()) {
             return NameMatcher.group();
         }
@@ -385,7 +295,7 @@ public class MainActivity extends AppCompatActivity implements AdapterView.OnIte
 
     //validate URL from string 7
     public String checkUrl(String s){
-        if((s.contains("https")||s.contains("www")) ||(!s.contains("@")&& s.contains("."))){
+        if((s.contains("https")|| s.contains("www")) || (!s.contains("@") && !s.contains("&") && !s.contains(",") && s.contains(".") )){
             return s;
         }
         return  "";
@@ -406,14 +316,15 @@ public class MainActivity extends AppCompatActivity implements AdapterView.OnIte
         storeParameter.add(spinner.getItemAtPosition(i).toString());
         layoutView.addView(spinner);
         //EditText field data binding
-        e_mail = new EditText(this);
-        e_mail.setLayoutParams(new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
-        e_mail.setText(s);
-        e_mail.setId(id);
+        editText = new EditText(this);
+        editText.setLayoutParams(new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+        editText.setText(s);
+        editText.setId(id);
+        editText.setImeOptions(EditorInfo.IME_ACTION_NEXT);
 
         StoreValues.add(s);
-        layoutView.addView(e_mail);
-        Layouttime.addView(layoutView);
+        layoutView.addView(editText);
+        OCRTextContainer.addView(layoutView);
         //increament id to create number of view
         id++;
     }
@@ -422,7 +333,6 @@ public class MainActivity extends AppCompatActivity implements AdapterView.OnIte
     @Override
     public void onItemSelected(AdapterView<?> parent, View views, int position,long id) {
         storeParameter.set(parent.getId(),Parameter[position]);
-        Log.d("printdata","item-"+storeParameter.get(parent.getId()));
     }
 
     //notify  when spinner item get change
@@ -568,4 +478,79 @@ public class MainActivity extends AppCompatActivity implements AdapterView.OnIte
         }
         return super.onOptionsItemSelected(item);
     }
+
+    //on click imageview get image large/zoom
+    public void zoom_Image(View zoomImage){
+        if(checkBitMap()) {
+            LayoutInflater layoutInflater = LayoutInflater.from(this);
+            zoomImage = layoutInflater.inflate(R.layout.zoom_view, null);
+            AlertDialog.Builder alertDialogBuilder = new AlertDialog.Builder(this);
+            // set prompts.xml to alertdialog notification
+            alertDialogBuilder.setView(zoomImage);
+            // create alert dialog
+            final AlertDialog alertDialog = alertDialogBuilder.create();
+            alertDialog.getWindow().setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT));
+            ImageView zoom_image = (ImageView) zoomImage.findViewById(R.id.zoom_image);
+            zoom_image.setImageBitmap(bitmap);
+            ImageView ButtonCancel = (ImageView) zoomImage.findViewById(R.id.ButtonCancel);
+            ButtonCancel.setOnClickListener(new View.OnClickListener() {
+                @Override
+                public void onClick(View view) {
+                    alertDialog.cancel();
+                }
+            });
+            alertDialog.show();
+        }
+        else {
+            CropImage.startPickImageActivity(this);
+        }
+    }
+
+    //check bitmap have data or not
+    public boolean checkBitMap(){
+        if(bitmap!=null)
+            return true;
+        return false;
+    }
+
+    //extract image in background
+    private class ImageExtracting extends AsyncTask<Object, Object, String[]> {
+        String[] str=null;
+        @Override
+        protected void onPreExecute() {
+            BitmapDrawable drawable = (BitmapDrawable) ImageView.getDrawable();
+            bitmap = drawable.getBitmap();
+            OCRTextContainer.removeAllViews();
+            StoreValues.clear();
+            storeParameter.clear();
+            id=0;
+
+            progressDialog.setMessage("Extracting...");
+            progressDialog.show();
+        }
+        @Override
+        protected String[] doInBackground(Object... params) {
+
+            tessBaseAPI.setImage(bitmap);
+            OCRresult = tessBaseAPI.getUTF8Text();
+            str = OCRresult.split("\n");
+
+            return str;
+        }
+        @Override
+        protected void onPostExecute(String[] result) {
+            if(result.length!=0){
+                notice.setVisibility(View.GONE);
+                for(String s: result) {
+                    if((s.trim().length() > 0) || (!s.isEmpty())) {
+                        validation(s);
+                    }
+                }
+                progressDialog.dismiss();
+                MenuItem item = menu.findItem(R.id.action_create);
+                item.setVisible(true);
+            }
+        }
+    }
+
 }

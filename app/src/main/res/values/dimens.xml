@@ -1,9 +1,0 @@
-<resources>
-    <dimen name="padding1">1dp</dimen>
-    <dimen name="padding10">10dp</dimen>
-    <dimen name="padding20">20dp</dimen>
-    <dimen name="padding40">40dp</dimen>
-    <dimen name="padding55">55dp</dimen>
-    <dimen name="padding30">30dp</dimen>
-    <dimen name="padding100">100dp</dimen>
-</resources>

@@ -9,29 +9,27 @@
     android:background="@android:color/white">
 
     <de.hdodenhof.circleimageview.CircleImageView
-        android:padding="5dp"
         android:layout_width="100dp"
         android:layout_height="100dp"
         android:id="@+id/ImageView"
-        android:scaleType="centerCrop"
         android:layout_gravity="center_horizontal"
         android:layout_centerInParent="true"
         android:layout_alignParentTop="true"
         android:src="@drawable/show_image"
         android:onClick="zoom_Image"
-        app:civ_border_color="@color/colorPrimary"
-        app:civ_border_width="3dp"/>
+        app:civ_border_color="@color/colorPrimaryDark"
+        app:civ_border_width="2dp"
+        android:layout_margin="2dp"/>
 
     <LinearLayout
         android:layout_below="@+id/ImageView"
-        android:layout_above="@+id/footer"
+        android:layout_above="@+id/Select"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:orientation="vertical"
-        android:layout_marginTop="2dp">
+        android:orientation="vertical">
         <View
             android:layout_width="match_parent"
-            android:layout_height="@dimen/padding1"
+            android:layout_height="1dp"
             android:background="@color/colorPrimary"/>
         <ScrollView
             android:layout_width="match_parent"
@@ -44,37 +42,30 @@
                 android:id="@+id/OCRTextContainer"
                 android:orientation="vertical">
 
+                <TextView
+                    android:id="@+id/notice"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:gravity="center"
+                    android:text="Result will be shown here. \n Make sure that image  will be on Vertical position.\n Click on icon to Extract text from object !"
+                    android:textAlignment="center"/>
+
             </LinearLayout>
         </ScrollView>
+
     </LinearLayout>
 
-    <LinearLayout
-        android:id="@+id/footer"
-        android:layout_width="match_parent"
-        android:layout_height="@dimen/padding40"
-        android:layout_alignParentBottom="true"
-        android:orientation="horizontal"
+    <de.hdodenhof.circleimageview.CircleImageView
+        android:id="@+id/Select"
+        android:layout_width="50dp"
+        android:layout_height="50dp"
+        android:layout_gravity="center_horizontal"
         android:layout_centerInParent="true"
-        android:gravity="center"
-        android:weightSum="2">
-        <Button
-            android:layout_weight="1"
-            android:id="@+id/Camera"
-            android:layout_width="0dp"
-            android:layout_height="match_parent"
-            android:text="Camera"
-            android:onClick="Open_Camera"
-            android:textColor="@android:color/white"
-            android:background="@color/colorPrimary"/>
-        <Button
-            android:layout_weight="1"
-            android:id="@+id/Gallery"
-            android:layout_width="0dp"
-            android:layout_height="match_parent"
-            android:text="Gallery"
-            android:onClick="Open_Gallery"
-            android:textColor="@android:color/white"
-            android:background="@color/colorPrimaryDark"/>
-    </LinearLayout>
+        android:layout_alignParentBottom="true"
+        app:civ_border_color="@color/colorPrimaryDark"
+        app:civ_border_width="2dp"
+        android:src="@drawable/show_image"
+        android:onClick="Choose_Image_Camera"/>
+
 </RelativeLayout>
 
