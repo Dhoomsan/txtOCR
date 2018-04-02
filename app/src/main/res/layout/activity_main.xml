@@ -47,6 +47,7 @@
                     android:layout_width="match_parent"
                     android:layout_height="match_parent"
                     android:gravity="center"
+                    android:padding="10dp"
                     android:text="Result will be shown here. \n Make sure that image  will be on Vertical position.\n Click on icon to Extract text from object !"
                     android:textAlignment="center"/>
 

@@ -16,9 +16,14 @@ import android.os.AsyncTask;
 import android.provider.ContactsContract;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
+import android.text.Editable;
+import android.text.TextWatcher;
+import android.util.Log;
+import android.util.Patterns;
 import android.view.LayoutInflater;
 import android.view.Menu;
 import android.view.MenuItem;
+import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.inputmethod.EditorInfo;
@@ -52,7 +57,7 @@ import static android.Manifest.permission.WRITE_CONTACTS;
 import static android.Manifest.permission.WRITE_EXTERNAL_STORAGE;
 import static android.Manifest.permission.WRITE_SETTINGS;
 
-public class MainActivity extends AppCompatActivity implements AdapterView.OnItemSelectedListener{
+public class MainActivity extends AppCompatActivity implements AdapterView.OnItemSelectedListener {
 
     private ProgressDialog progressDialog;
     String[] Parameter = { "SELECT","NAME", "PHONE", "EMAIL", "COMPANY" ,"JOB_TITLE", "ADDRESS","URL"},store_Intent_Values;
@@ -157,67 +162,54 @@ public class MainActivity extends AppCompatActivity implements AdapterView.OnIte
         CropImage.activity(imageUri).setGuidelines(CropImageView.Guidelines.ON).setMultiTouchEnabled(true).start(this);
     }
 
-    //extract image
-    public void processImageData(){
-        BitmapDrawable drawable = (BitmapDrawable) ImageView.getDrawable();
-        bitmap = drawable.getBitmap();
-        String[] str=null;
-        StoreValues.clear();
-        storeParameter.clear();
-        id=0;
-        OCRTextContainer.removeAllViews();
-
-        tessBaseAPI.setImage(bitmap);
-        OCRresult = tessBaseAPI.getUTF8Text();
-        str = OCRresult.split("\n");
-        if(OCRresult.length()!=0){
-            for(String s: str) {
-                if((s.trim().length() > 0) || (!s.isEmpty())) {
-                    validation(s);
-                }
-            }
-            MenuItem item = menu.findItem(R.id.action_create);
-            item.setVisible(true);
-        } else {
-            Something_went_wrong("Sorry, we could not find any text in your image");
-        }
-
-    }
-
     //data validation while parsing
     public void validation(String s){
+        if(specialCharacter(s))
+        {
+
+        }
         //validate NAME from string 1
-        if(!checkName(s).isEmpty()){
-            showLayout(s,1);
+        else if(!checkName(s).isEmpty()){
+            createDynamicLayout(s,1);
         }
         //validate PHONE from string  2
         else if(!checkNumber(s).isEmpty()){
-            showLayout(s,2);
+            createDynamicLayout(s,2);
         }
         //validate EMAIL from string 3
         else if (!checkEmail(s).isEmpty()){
-            showLayout(s,3);
+            createDynamicLayout(s,3);
         }
         //validate COMPANY from string 4
         else if (!checkCompany(s).isEmpty()){
-            showLayout(s,4);
+            createDynamicLayout(s,4);
         }
         //validate JOB_TITLE from string 5
         else if (!checkJobTitle(s).isEmpty()){
-            showLayout(s,5);
+            createDynamicLayout(s,5);
         }
         //validate POSTAL from string 6
         else if (!checkPostal(s).isEmpty()){
-            showLayout(s,6);
+            createDynamicLayout(s,6);
         }
         //validate URL from string 7
         else if (!checkUrl(s).isEmpty()){
-            showLayout(s,7);
+            createDynamicLayout(s,7);
         }
         //validate not Validate from string  0
         else {
-            showLayout(s, 0);
+            createDynamicLayout(s, 0);
         }
+    }
+
+    //special character more than 3
+    public boolean specialCharacter(String s){
+        String FINAL_CHAR_REGEX = "[!#$%^&*()[\\\\]|;'/{}\\\\\\\\:\\\"<>?]";
+        int specialCharCount = s.split(FINAL_CHAR_REGEX, -1).length - 1;
+        if(specialCharCount>3){
+            return true;
+        }
+        return false;
     }
 
     //validate NAME from string 1
@@ -255,8 +247,16 @@ public class MainActivity extends AppCompatActivity implements AdapterView.OnIte
 
     //validate EMAIL from string 3
     public String checkEmail(String s){
-        if((s.contains("@") || s.contains("\\u00a9")) && s.contains(".")){
-            return s;
+        String EMAIL_PATTERN = "^[_A-Za-z0-9-\\\\+]+(\\\\.[_A-Za-z0-9-]+)*@[A-Za-z0-9-]+(\\\\.[A-Za-z0-9]+)*(\\\\.[A-Za-z]{2,})$";
+        Matcher EmailMatcher =  Pattern.compile(EMAIL_PATTERN).matcher(s);
+        if(EmailMatcher.find()){
+                return s;
+        }
+        else {
+            for(String email:s.split(" ")){
+                if(Patterns.EMAIL_ADDRESS.matcher(email).matches())
+                    return s;
+            }
         }
         return  "";
     }
@@ -267,7 +267,7 @@ public class MainActivity extends AppCompatActivity implements AdapterView.OnIte
             String[] arr = s.split(" ");
             if (arr.length != 1) {
                 for (int i = 0; i < s.length(); i++) {
-                    if (Character.isUpperCase(s.charAt(i))) {
+                    if (Character.isUpperCase(s.codePointAt(0))) {
                         return s;
                     }
                 }
@@ -278,31 +278,37 @@ public class MainActivity extends AppCompatActivity implements AdapterView.OnIte
 
     //validate JOB_TITLE from string 5
     public String checkJobTitle(String s){
-        Matcher NameMatcher =  Pattern.compile("\"\\'\",\"\\'\\'\"").matcher(s);
-        while (NameMatcher.find()) {
-            return NameMatcher.group();
+        int specialCharCount = s.split("“", -1).length - 1;
+        int specialCharCount1 = s.split("”", -1).length - 1;
+        if(specialCharCount>0 || specialCharCount1>0){
+            return s;
         }
-        return  "";
+        return "";
     }
 
     //validate POSTAL from string 6
     public String checkPostal(String s){
-        if(s.contains(",")){
-            return s;
+        if(s.contains(",")) {
+            String FINAL_CHAR_REGEX = "[!#$%^&*()[\\\\]|;'/{}\\\\\\\\:\\\"<>?]";
+            Matcher EmailMatcher = Pattern.compile(FINAL_CHAR_REGEX).matcher(s);
+            if (!EmailMatcher.find()) {
+                return s;
+            }
         }
+
         return  "";
     }
 
     //validate URL from string 7
-    public String checkUrl(String s){
-        if((s.contains("https")|| s.contains("www")) || (!s.contains("@") && !s.contains("&") && !s.contains(",") && s.contains(".") )){
-            return s;
-        }
+    public String checkUrl(String s) {
+       if((s.contains("https")|| s.contains("www")) || (!s.contains("@") && !s.contains("&") && !s.contains(",") && !s.contains("/") && s.contains(".") )){
+           return s;
+       }
         return  "";
     }
 
     //show output in dynamic layout
-    public void showLayout(String s,int i){
+    public void createDynamicLayout(String s, int i){
         layoutView = new LinearLayout(this);
         layoutView.setOrientation(LinearLayout.HORIZONTAL);
         //Spinner field data binding
@@ -321,8 +327,8 @@ public class MainActivity extends AppCompatActivity implements AdapterView.OnIte
         editText.setText(s);
         editText.setId(id);
         editText.setImeOptions(EditorInfo.IME_ACTION_NEXT);
-
         StoreValues.add(s);
+
         layoutView.addView(editText);
         OCRTextContainer.addView(layoutView);
         //increament id to create number of view
@@ -539,6 +545,7 @@ public class MainActivity extends AppCompatActivity implements AdapterView.OnIte
         }
         @Override
         protected void onPostExecute(String[] result) {
+
             if(result.length!=0){
                 notice.setVisibility(View.GONE);
                 for(String s: result) {
