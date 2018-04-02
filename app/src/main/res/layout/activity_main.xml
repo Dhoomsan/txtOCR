@@ -69,4 +69,3 @@
         android:onClick="Choose_Image_Camera"/>
 
 </RelativeLayout>
-

@@ -4,6 +4,8 @@ import android.annotation.SuppressLint;
 import android.app.Activity;
 import android.app.AlertDialog;
 import android.app.ProgressDialog;
+import android.content.Context;
+import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.content.res.AssetManager;
@@ -16,17 +18,13 @@ import android.os.AsyncTask;
 import android.provider.ContactsContract;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
-import android.text.Editable;
-import android.text.TextWatcher;
 import android.util.Log;
 import android.util.Patterns;
 import android.view.LayoutInflater;
 import android.view.Menu;
 import android.view.MenuItem;
-import android.view.MotionEvent;
 import android.view.View;
-import android.view.ViewGroup;
-import android.view.inputmethod.EditorInfo;
+import android.view.ViewTreeObserver;
 import android.widget.AdapterView;
 import android.widget.ArrayAdapter;
 import android.widget.EditText;
@@ -45,6 +43,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -67,11 +66,12 @@ public class MainActivity extends AppCompatActivity implements AdapterView.OnIte
     Bitmap bitmap;
     private TessBaseAPI tessBaseAPI;
     String datapath = "",getAppName,language = "eng",OCRresult="";
-    LinearLayout OCRTextContainer,layoutView;
-    EditText editText;
+    LinearLayout OCRTextContainer;
     TextView notice;
-    CircleImageView ImageView;
+    EditText edittext;
     Spinner spinner;
+    ImageView remove;
+    CircleImageView ImageView;
     ArrayAdapter spinnerArrayAdapter;
     private Menu menu;
     int id=0;
@@ -250,7 +250,7 @@ public class MainActivity extends AppCompatActivity implements AdapterView.OnIte
         String EMAIL_PATTERN = "^[_A-Za-z0-9-\\\\+]+(\\\\.[_A-Za-z0-9-]+)*@[A-Za-z0-9-]+(\\\\.[A-Za-z0-9]+)*(\\\\.[A-Za-z]{2,})$";
         Matcher EmailMatcher =  Pattern.compile(EMAIL_PATTERN).matcher(s);
         if(EmailMatcher.find()){
-                return s;
+            return s;
         }
         else {
             for(String email:s.split(" ")){
@@ -301,38 +301,61 @@ public class MainActivity extends AppCompatActivity implements AdapterView.OnIte
 
     //validate URL from string 7
     public String checkUrl(String s) {
-       if((s.contains("https")|| s.contains("www")) || (!s.contains("@") && !s.contains("&") && !s.contains(",") && !s.contains("/") && s.contains(".") )){
-           return s;
-       }
+        if((s.contains("https")|| s.contains("www")) || (!s.contains("@") && !s.contains("&") && !s.contains(",") && !s.contains("/") && s.contains(".") )){
+            return s;
+        }
         return  "";
     }
 
-    //show output in dynamic layout
-    public void createDynamicLayout(String s, int i){
-        layoutView = new LinearLayout(this);
-        layoutView.setOrientation(LinearLayout.HORIZONTAL);
-        //Spinner field data binding
-        spinner = new Spinner(this);
+   //show output in dynamic layout
+   public void createDynamicLayout(String s, int i){
+        LayoutInflater layoutInflater = (LayoutInflater) getBaseContext().getSystemService(Context.LAYOUT_INFLATER_SERVICE);
+        final View addView = layoutInflater.inflate(R.layout.display_layout, null);
+        spinner=(Spinner)addView.findViewById(R.id.spinner);
+        edittext=(EditText)addView.findViewById(R.id.edittext);
+
         spinner.setOnItemSelectedListener(this);
         spinnerArrayAdapter = new ArrayAdapter(this, android.R.layout.simple_spinner_item, Parameter);
         spinnerArrayAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
         spinner.setAdapter(spinnerArrayAdapter);
         spinner.setSelection(i);
         spinner.setId(id);
-        storeParameter.add(spinner.getItemAtPosition(i).toString());
-        layoutView.addView(spinner);
-        //EditText field data binding
-        editText = new EditText(this);
-        editText.setLayoutParams(new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
-        editText.setText(s);
-        editText.setId(id);
-        editText.setImeOptions(EditorInfo.IME_ACTION_NEXT);
+        storeParameter.add(spinner.getSelectedItem().toString());
+
+        edittext.setText(s);
         StoreValues.add(s);
 
-        layoutView.addView(editText);
-        OCRTextContainer.addView(layoutView);
-        //increament id to create number of view
+        remove=(ImageView)addView.findViewById(R.id.remove);
+        remove.setOnClickListener(new View.OnClickListener(){
+            @Override
+            public void onClick(View v) {
+                showAlert(addView);
+            }});
+
+        OCRTextContainer.addView(addView, 0);
         id++;
+
+    }
+
+    //show aler before delete data
+    public void showAlert(final View addView){
+        AlertDialog.Builder builder = new AlertDialog.Builder(MainActivity.this)
+                .setMessage("Do you really want to Delete this ?")
+                .setCancelable(false)
+                .setPositiveButton("Yes", new DialogInterface.OnClickListener() {
+                    public void onClick(DialogInterface dialog, int id) {
+                        ((LinearLayout)addView.getParent()).removeView(addView);
+                    }
+                })
+                .setNegativeButton("No", new DialogInterface.OnClickListener() {
+                    public void onClick(DialogInterface dialog, int id) {
+                        dialog.cancel();
+                    }
+                });
+        AlertDialog alert = builder.create();
+        alert.setIcon(R.drawable.show_image);// dialog  Icon
+        alert.setTitle("Confirmation"); // dialog  Title
+        alert.show();
     }
 
     //validate when spinner item get change
@@ -347,59 +370,74 @@ public class MainActivity extends AppCompatActivity implements AdapterView.OnIte
 
     //now add all data in phone book
     public void Add_Data_In_Contacts_List(){
+        //Collections.reverse(StoreValues);
+        int childCount = OCRTextContainer.getChildCount();
         String NAME="",PHONE="",SECONDARY_PHONE="",EMAIL="",COMPANY="",JOB_TITLE="",ADDRESS="",IM_PROTOCOL="",DATA="";
-        if(StoreValues.size()>=0) {
-            int count=0;
-            store_Intent_Values=new String[StoreValues.size()];
-            for(int file=0;file<StoreValues.size();file++) {
-
-                if(storeParameter.get(file).equals("NAME")){
-                    NAME+=StoreValues.get(file).toString();
-                }
-                if(storeParameter.get(file).equals("PHONE")){
-                    if(count==0) {
-                        PHONE = StoreValues.get(file).toString();
-                    }
-                    if (count==1){
-                        SECONDARY_PHONE = StoreValues.get(file).toString();
-                    }
-                    count++;
-                }
-                if(storeParameter.get(file).equals("EMAIL")){
-                    EMAIL+=StoreValues.get(file).toString();
-                }
-                if(storeParameter.get(file).equals("COMPANY")){
-                    COMPANY+=StoreValues.get(file);
-                }
-                if(storeParameter.get(file).equals("JOB_TITLE")){
-                    JOB_TITLE+=StoreValues.get(file).toString();
-                }
-                if(storeParameter.get(file).equals("ADDRESS")){
-                    ADDRESS+=StoreValues.get(file).toString();
-                }
-                if(storeParameter.get(file).equals("URL")){
-                    IM_PROTOCOL+=StoreValues.get(file).toString();
-                }
-                if(storeParameter.get(file).equals("OTHERs")){
-                    DATA+=StoreValues.get(file).toString();
-                }
+        int count=0,set=0;
+        if(childCount>0 && StoreValues.size()>=0 && storeParameter.size()>0){
+        for(int c=childCount-1; c>=0; c--){
+            View childView = OCRTextContainer.getChildAt(c);
+            TextView childTextView = (TextView)(childView.findViewById(R.id.edittext));
+            String childTextViewText = String.valueOf(childTextView.getText());
+                StoreValues.set(set,childTextViewText);
+                Log.d("getData","child  "+StoreValues.get(c)+" - "+ String.valueOf(c));
+            set++;
+        }
+        for(int file=0;file<StoreValues.size();file++) {
+            if(storeParameter.get(file).equals("NAME")){
+                NAME+=" " +StoreValues.get(file).toString();
+                Log.d("getData","NAME "+NAME+" - "+ String.valueOf(file));
             }
-            intent = new Intent(ContactsContract.Intents.Insert.ACTION);
-            intent.setType(ContactsContract.RawContacts.CONTENT_TYPE);
-
-            intent.putExtra(ContactsContract.Intents.Insert.NAME, NAME)//insert name of person
-                    .putExtra(ContactsContract.Intents.Insert.PHONE, PHONE)//insert phone number of person
-                    .putExtra(ContactsContract.Intents.Insert.SECONDARY_PHONE,SECONDARY_PHONE)//insert alternate phone number of person
-                    .putExtra(ContactsContract.Intents.Insert.EMAIL, EMAIL)//insert email address of person
-                    .putExtra(ContactsContract.Intents.Insert.COMPANY, COMPANY)//insert name of person
-                    .putExtra(ContactsContract.Intents.Insert.JOB_TITLE, JOB_TITLE)//insert name of person
-                    .putExtra(ContactsContract.Intents.Insert.POSTAL, ADDRESS)//insert name of person
-                    .putExtra(ContactsContract.Intents.Insert.IM_PROTOCOL,IM_PROTOCOL)//insert name of person
-                    .putExtra(ContactsContract.Intents.Insert.DATA, DATA);//insert name of person
-
+            if(storeParameter.get(file).equals("PHONE")){
+                if(count==0) {
+                    PHONE = StoreValues.get(file).toString();
+                    Log.d("getData","PHONE "+PHONE+" - "+ String.valueOf(file));
+                }
+                if (count==1){
+                    SECONDARY_PHONE = StoreValues.get(file).toString();
+                    Log.d("getData","SECONDARY_PHONE "+SECONDARY_PHONE +" - "+ String.valueOf(file));
+                }
+                count++;
+            }
+            if(storeParameter.get(file).equals("EMAIL")){
+                EMAIL+=" " +StoreValues.get(file).toString();
+                Log.d("getData","EMAIL "+EMAIL+" - "+ String.valueOf(file));
+            }
+            if(storeParameter.get(file).equals("COMPANY")){
+                COMPANY+=" " +StoreValues.get(file);
+                Log.d("getData","COMPANY "+COMPANY+" - "+ String.valueOf(file));
+            }
+            if(storeParameter.get(file).equals("JOB_TITLE")){
+                JOB_TITLE+=" " +StoreValues.get(file).toString();
+                Log.d("getData","JOB_TITLE"+JOB_TITLE+" - "+ String.valueOf(file));
+            }
+            if(storeParameter.get(file).equals("ADDRESS")){
+                ADDRESS+=" " +StoreValues.get(file).toString();
+                Log.d("getData","ADDRESS "+ADDRESS+" - "+ String.valueOf(file));
+            }
+            if(storeParameter.get(file).equals("URL")){
+                IM_PROTOCOL+=" " +StoreValues.get(file).toString();
+                Log.d("getData","IM_PROTOCOL "+IM_PROTOCOL+" - "+ String.valueOf(file));
+            }
+            if(storeParameter.get(file).equals("OTHERs")){
+                DATA+=" " +StoreValues.get(file).toString();
+                Log.d("getData","DATA "+DATA+" - "+ String.valueOf(file));
+            }
+        }
+        intent = new Intent(ContactsContract.Intents.Insert.ACTION);
+        intent.setType(ContactsContract.RawContacts.CONTENT_TYPE);
+        intent.putExtra(ContactsContract.Intents.Insert.NAME, NAME)//insert name of person
+              .putExtra(ContactsContract.Intents.Insert.PHONE, PHONE)//insert phone number of person
+              .putExtra(ContactsContract.Intents.Insert.SECONDARY_PHONE,SECONDARY_PHONE)//insert alternate phone number of person
+              .putExtra(ContactsContract.Intents.Insert.EMAIL, EMAIL)//insert email address of person
+              .putExtra(ContactsContract.Intents.Insert.COMPANY, COMPANY)//insert name of person
+              .putExtra(ContactsContract.Intents.Insert.JOB_TITLE, JOB_TITLE)//insert name of person
+              .putExtra(ContactsContract.Intents.Insert.POSTAL, ADDRESS)//insert name of person
+              .putExtra(ContactsContract.Intents.Insert.IM_PROTOCOL,IM_PROTOCOL)//insert name of person
+              .putExtra(ContactsContract.Intents.Insert.DATA, DATA);//insert name of person
             if (intent.resolveActivity(getPackageManager()) != null) {
                 startActivity(intent);
-            } else {
+            }else {
                 Something_went_wrong("Unable to start service Intent");
             }
         }else {
@@ -477,10 +515,12 @@ public class MainActivity extends AppCompatActivity implements AdapterView.OnIte
     //on click menu item open phone book to save contacts
     @Override
     public boolean onOptionsItemSelected(MenuItem item) {
-        int id = item.getItemId();
-        if (id == R.id.action_create) {
-            Add_Data_In_Contacts_List();
-            return true;
+
+        switch (item.getItemId()){
+            case R.id.action_create:{
+                Add_Data_In_Contacts_List();
+                break;
+            }
         }
         return super.onOptionsItemSelected(item);
     }
@@ -548,8 +588,9 @@ public class MainActivity extends AppCompatActivity implements AdapterView.OnIte
 
             if(result.length!=0){
                 notice.setVisibility(View.GONE);
-                for(String s: result) {
-                    if((s.trim().length() > 0) || (!s.isEmpty())) {
+                for(int i=result.length-1;i>=0;i--) {
+                    if((result[i].trim().length() > 0) || (!result[i].isEmpty())) {
+                        String s=result[i];
                         validation(s);
                     }
                 }
@@ -559,5 +600,4 @@ public class MainActivity extends AppCompatActivity implements AdapterView.OnIte
             }
         }
     }
-
 }
