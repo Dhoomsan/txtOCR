@@ -16,6 +16,7 @@ import android.graphics.drawable.ColorDrawable;
 import android.net.Uri;
 import android.os.AsyncTask;
 import android.provider.ContactsContract;
+import android.support.v7.app.ActionBar;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
 import android.util.Patterns;
@@ -72,6 +73,12 @@ public class MainActivity extends AppCompatActivity{
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
+
+        //show  actionbar icon
+        getSupportActionBar().setDisplayOptions(ActionBar.DISPLAY_SHOW_HOME | ActionBar.DISPLAY_SHOW_TITLE);
+        getSupportActionBar().setIcon(R.mipmap.ic_launcher);
+        getSupportActionBar().setDisplayUseLogoEnabled(true);
+
 
         progressDialog = new ProgressDialog(this);
 
@@ -307,7 +314,7 @@ public class MainActivity extends AppCompatActivity{
         Spinner spinner=(Spinner)addView.findViewById(R.id.spinner_id);
         edittext=(EditText)addView.findViewById(R.id.edittext);
 
-        spinnerArrayAdapter = new ArrayAdapter(this, android.R.layout.simple_spinner_item, Parameter);
+       spinnerArrayAdapter = new ArrayAdapter<String>(this,R.layout.custom_textview_to_spinner, Parameter);
         spinnerArrayAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
         spinner.setAdapter(spinnerArrayAdapter);
         spinner.setSelection(i);
@@ -341,7 +348,7 @@ public class MainActivity extends AppCompatActivity{
                     }
                 });
         AlertDialog alert = builder.create();
-        alert.setIcon(R.drawable.show_image);// dialog  Icon
+        alert.setIcon(R.mipmap.ic_launcher);// dialog  Icon
         alert.setTitle("Confirmation"); // dialog  Title
         alert.show();
     }
@@ -358,7 +365,7 @@ public class MainActivity extends AppCompatActivity{
 
                 View childView = OCRTextContainer.getChildAt(c);
 
-                TextView childTextView = (TextView)(childView.findViewById(R.id.edittext));
+                EditText childTextView = (EditText) (childView.findViewById(R.id.edittext));
                 Spinner spinner=(Spinner)(childView.findViewById(R.id.spinner_id));
 
                 String setValues = String.valueOf(childTextView.getText());

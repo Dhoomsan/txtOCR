@@ -15,22 +15,22 @@
         android:layout_gravity="center_horizontal"
         android:layout_centerInParent="true"
         android:layout_alignParentTop="true"
-        android:src="@drawable/show_image"
+        android:src="@drawable/img_cf_logo"
         android:onClick="zoom_Image"
-        app:civ_border_color="@color/colorPrimaryDark"
-        app:civ_border_width="2dp"
-        android:layout_margin="2dp"/>
+        app:civ_border_color="@color/colorAccent"
+        app:civ_border_width="1dp"
+        android:padding="2dp"/>
 
     <LinearLayout
         android:layout_below="@+id/ImageView"
-        android:layout_above="@+id/Select"
+        android:layout_above="@+id/footer"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:orientation="vertical">
         <View
             android:layout_width="match_parent"
             android:layout_height="1dp"
-            android:background="@color/colorPrimary"/>
+            android:background="@color/colorAccent"/>
         <ScrollView
             android:layout_width="match_parent"
             android:layout_height="match_parent"
@@ -38,17 +38,18 @@
             android:scrollbars="none">
             <LinearLayout
                 android:layout_width="match_parent"
-                android:layout_height="match_parent"
+                android:layout_height="wrap_content"
                 android:id="@+id/OCRTextContainer"
-                android:orientation="vertical">
+                android:orientation="vertical"
+                android:paddingLeft="5dp"
+                android:paddingRight="5dp">
 
                 <TextView
                     android:id="@+id/notice"
                     android:layout_width="match_parent"
                     android:layout_height="match_parent"
                     android:gravity="center"
-                    android:padding="10dp"
-                    android:text="Result will be shown here. \n Make sure that image  will be on Vertical position.\n Click on icon to Extract text from object !"
+                    android:text="@string/notice"
                     android:textAlignment="center"/>
 
             </LinearLayout>
@@ -56,16 +57,30 @@
 
     </LinearLayout>
 
-    <de.hdodenhof.circleimageview.CircleImageView
-        android:id="@+id/Select"
-        android:layout_width="50dp"
-        android:layout_height="50dp"
-        android:layout_gravity="center_horizontal"
+    <LinearLayout
+        android:id="@id/footer"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
         android:layout_centerInParent="true"
-        android:layout_alignParentBottom="true"
-        app:civ_border_color="@color/colorPrimaryDark"
-        app:civ_border_width="2dp"
-        android:src="@drawable/show_image"
-        android:onClick="Choose_Image_Camera"/>
+        android:layout_alignParentBottom="true">
+
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="1dp"
+            android:background="@color/colorAccent"/>
+
+        <de.hdodenhof.circleimageview.CircleImageView
+            android:id="@+id/Select"
+            android:layout_width="50dp"
+            android:layout_height="50dp"
+            android:layout_gravity="center_horizontal"
+            android:src="@drawable/img_gallery"
+            android:onClick="Choose_Image_Camera"
+            app:civ_border_color="@color/colorAccent"
+            app:civ_border_width="1dp"
+            android:padding="2dp"/>
+
+    </LinearLayout>
 
 </RelativeLayout>

@@ -6,8 +6,7 @@
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:orientation="horizontal"
-        android:padding="5dp">
+        android:orientation="horizontal">
 
         <Spinner
             android:id="@+id/spinner_id"
@@ -22,20 +21,18 @@
             android:text=""
             android:imeOptions="actionNext"
             android:inputType="text"
-            android:textAppearance="?android:attr/textAppearanceButton"
-            android:textColor="@android:color/black"
-            android:textStyle="bold" />
+            android:textColor="@color/colorGrey" />
 
         <ImageView
             android:id="@+id/remove"
             android:layout_width="20dp"
             android:layout_height="20dp"
+            android:padding="2dp"
             android:src="@drawable/img_remove"
             android:layout_gravity="center"
             android:textAppearance="?android:attr/textAppearanceButton"
             android:textColor="@android:color/black"
             android:textStyle="bold" />
-
     </LinearLayout>
 
 </RelativeLayout>

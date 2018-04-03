@@ -4,9 +4,8 @@
     <item android:drawable="@android:color/white" />
 
     <item>
-        <bitmap android:src="@drawable/show_image"
+        <bitmap android:src="@drawable/img_cf_logo"
             android:gravity="center" />
-
     </item>
 
 </layer-list>

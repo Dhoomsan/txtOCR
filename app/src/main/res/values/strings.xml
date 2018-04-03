@@ -1,3 +1,4 @@
 <resources>
     <string name="app_name">ContactsFairy</string>
+    <string name="notice">Result will be shown here. \n Make sure that image  will be on Vertical position.\n Click on icon to Extract text from object !</string>
 </resources>
