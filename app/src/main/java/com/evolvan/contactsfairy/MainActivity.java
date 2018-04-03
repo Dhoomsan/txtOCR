@@ -18,14 +18,11 @@ import android.os.AsyncTask;
 import android.provider.ContactsContract;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
-import android.util.Log;
 import android.util.Patterns;
 import android.view.LayoutInflater;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
-import android.view.ViewTreeObserver;
-import android.widget.AdapterView;
 import android.widget.ArrayAdapter;
 import android.widget.EditText;
 import android.widget.ImageView;
@@ -42,9 +39,6 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import de.hdodenhof.circleimageview.CircleImageView;
@@ -56,10 +50,10 @@ import static android.Manifest.permission.WRITE_CONTACTS;
 import static android.Manifest.permission.WRITE_EXTERNAL_STORAGE;
 import static android.Manifest.permission.WRITE_SETTINGS;
 
-public class MainActivity extends AppCompatActivity implements AdapterView.OnItemSelectedListener {
+public class MainActivity extends AppCompatActivity{
 
     private ProgressDialog progressDialog;
-    String[] Parameter = { "SELECT","NAME", "PHONE", "EMAIL", "COMPANY" ,"JOB_TITLE", "ADDRESS","URL"},store_Intent_Values;
+    String[] Parameter = { "SELECT","NAME", "PHONE", "EMAIL", "COMPANY" ,"JOB_TITLE", "ADDRESS","URL"};
     private static final int TIME_DELAY = 2000;
     private static long back_pressed;
     Intent intent;
@@ -69,14 +63,10 @@ public class MainActivity extends AppCompatActivity implements AdapterView.OnIte
     LinearLayout OCRTextContainer;
     TextView notice;
     EditText edittext;
-    Spinner spinner;
     ImageView remove;
     CircleImageView ImageView;
     ArrayAdapter spinnerArrayAdapter;
     private Menu menu;
-    int id=0;
-    List<String> StoreValues = new ArrayList<String>();
-    List<String>storeParameter=new ArrayList<>();
     private Uri mCropImageUri;
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -170,6 +160,7 @@ public class MainActivity extends AppCompatActivity implements AdapterView.OnIte
         }
         //validate NAME from string 1
         else if(!checkName(s).isEmpty()){
+
             createDynamicLayout(s,1);
         }
         //validate PHONE from string  2
@@ -247,17 +238,19 @@ public class MainActivity extends AppCompatActivity implements AdapterView.OnIte
 
     //validate EMAIL from string 3
     public String checkEmail(String s){
-        String EMAIL_PATTERN = "^[_A-Za-z0-9-\\\\+]+(\\\\.[_A-Za-z0-9-]+)*@[A-Za-z0-9-]+(\\\\.[A-Za-z0-9]+)*(\\\\.[A-Za-z]{2,})$";
-        Matcher EmailMatcher =  Pattern.compile(EMAIL_PATTERN).matcher(s);
-        if(EmailMatcher.find()){
-            return s;
-        }
-        else {
-            for(String email:s.split(" ")){
-                if(Patterns.EMAIL_ADDRESS.matcher(email).matches())
-                    return s;
+        for(String email:s.split(" ")){
+            String EMAIL_PATTERN = "^[_A-Za-z0-9-\\\\+]+(\\\\.[_A-Za-z0-9-]+)*@[A-Za-z0-9-]+(\\\\.[A-Za-z0-9]+)*(\\\\.[A-Za-z]{2,})$";
+            Matcher EmailMatcher =  Pattern.compile(EMAIL_PATTERN).matcher(s);
+            if(EmailMatcher.find()){
+                return s;
+            }
+            else if(Patterns.EMAIL_ADDRESS.matcher(email).matches()) {
+                return s;
+            }else if(s.contains("@")){
+                return s;
             }
         }
+
         return  "";
     }
 
@@ -311,19 +304,15 @@ public class MainActivity extends AppCompatActivity implements AdapterView.OnIte
    public void createDynamicLayout(String s, int i){
         LayoutInflater layoutInflater = (LayoutInflater) getBaseContext().getSystemService(Context.LAYOUT_INFLATER_SERVICE);
         final View addView = layoutInflater.inflate(R.layout.display_layout, null);
-        spinner=(Spinner)addView.findViewById(R.id.spinner);
+        Spinner spinner=(Spinner)addView.findViewById(R.id.spinner_id);
         edittext=(EditText)addView.findViewById(R.id.edittext);
 
-        spinner.setOnItemSelectedListener(this);
         spinnerArrayAdapter = new ArrayAdapter(this, android.R.layout.simple_spinner_item, Parameter);
         spinnerArrayAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
         spinner.setAdapter(spinnerArrayAdapter);
         spinner.setSelection(i);
-        spinner.setId(id);
-        storeParameter.add(spinner.getSelectedItem().toString());
 
         edittext.setText(s);
-        StoreValues.add(s);
 
         remove=(ImageView)addView.findViewById(R.id.remove);
         remove.setOnClickListener(new View.OnClickListener(){
@@ -333,14 +322,13 @@ public class MainActivity extends AppCompatActivity implements AdapterView.OnIte
             }});
 
         OCRTextContainer.addView(addView, 0);
-        id++;
 
     }
 
     //show aler before delete data
     public void showAlert(final View addView){
         AlertDialog.Builder builder = new AlertDialog.Builder(MainActivity.this)
-                .setMessage("Do you really want to Delete this ?")
+                .setMessage("Do you really want to Delete it ?")
                 .setCancelable(false)
                 .setPositiveButton("Yes", new DialogInterface.OnClickListener() {
                     public void onClick(DialogInterface dialog, int id) {
@@ -358,72 +346,56 @@ public class MainActivity extends AppCompatActivity implements AdapterView.OnIte
         alert.show();
     }
 
-    //validate when spinner item get change
-    @Override
-    public void onItemSelected(AdapterView<?> parent, View views, int position,long id) {
-        storeParameter.set(parent.getId(),Parameter[position]);
-    }
-
-    //notify  when spinner item get change
-    @Override
-    public void onNothingSelected(AdapterView<?> arg0) {}
-
     //now add all data in phone book
     public void Add_Data_In_Contacts_List(){
         //Collections.reverse(StoreValues);
         int childCount = OCRTextContainer.getChildCount();
-        String NAME="",PHONE="",SECONDARY_PHONE="",EMAIL="",COMPANY="",JOB_TITLE="",ADDRESS="",IM_PROTOCOL="",DATA="";
-        int count=0,set=0;
-        if(childCount>0 && StoreValues.size()>=0 && storeParameter.size()>0){
-        for(int c=childCount-1; c>=0; c--){
-            View childView = OCRTextContainer.getChildAt(c);
-            TextView childTextView = (TextView)(childView.findViewById(R.id.edittext));
-            String childTextViewText = String.valueOf(childTextView.getText());
-                StoreValues.set(set,childTextViewText);
-                Log.d("getData","child  "+StoreValues.get(c)+" - "+ String.valueOf(c));
-            set++;
-        }
-        for(int file=0;file<StoreValues.size();file++) {
-            if(storeParameter.get(file).equals("NAME")){
-                NAME+=" " +StoreValues.get(file).toString();
-                Log.d("getData","NAME "+NAME+" - "+ String.valueOf(file));
-            }
-            if(storeParameter.get(file).equals("PHONE")){
-                if(count==0) {
-                    PHONE = StoreValues.get(file).toString();
-                    Log.d("getData","PHONE "+PHONE+" - "+ String.valueOf(file));
+        String NAME="",PHONE="",SECONDARY_PHONE="",EMAIL="",COMPANY="",JOB_TITLE="",ADDRESS="", WEBADDRESS ="",DATA="";
+        int count=0;
+        if(childCount>0){
+
+            for(int c=0; c<childCount; c++){
+
+                View childView = OCRTextContainer.getChildAt(c);
+
+                TextView childTextView = (TextView)(childView.findViewById(R.id.edittext));
+                Spinner spinner=(Spinner)(childView.findViewById(R.id.spinner_id));
+
+                String setValues = String.valueOf(childTextView.getText());
+                String setParameter = (String)(spinner.getSelectedItem());
+
+                if(setParameter.equals("NAME")){
+                    NAME+=" " + setValues;
                 }
-                if (count==1){
-                    SECONDARY_PHONE = StoreValues.get(file).toString();
-                    Log.d("getData","SECONDARY_PHONE "+SECONDARY_PHONE +" - "+ String.valueOf(file));
+                else if(setParameter.equals("PHONE")){
+                    if(count==0) {
+                        PHONE = setValues;
+                    }
+                    if (count==1){
+                        SECONDARY_PHONE = setValues;
+                    }
+                    count++;
                 }
-                count++;
+                else if(setParameter.equals("EMAIL")){
+                    EMAIL+=" " + setValues;
+                }
+                else if(setParameter.equals("COMPANY")){
+                    COMPANY+=" " + setValues;
+                }
+                else if(setParameter.equals("JOB_TITLE")){
+                    JOB_TITLE+=" " + setValues;
+                }
+                else if(setParameter.equals("ADDRESS")){
+                    ADDRESS+=" " + setValues;
+                }
+                else if(setParameter.equals("URL")){
+                    WEBADDRESS +=" " + setValues;
+                }
+                else {
+                    DATA+=" " + setValues;
+                }
             }
-            if(storeParameter.get(file).equals("EMAIL")){
-                EMAIL+=" " +StoreValues.get(file).toString();
-                Log.d("getData","EMAIL "+EMAIL+" - "+ String.valueOf(file));
-            }
-            if(storeParameter.get(file).equals("COMPANY")){
-                COMPANY+=" " +StoreValues.get(file);
-                Log.d("getData","COMPANY "+COMPANY+" - "+ String.valueOf(file));
-            }
-            if(storeParameter.get(file).equals("JOB_TITLE")){
-                JOB_TITLE+=" " +StoreValues.get(file).toString();
-                Log.d("getData","JOB_TITLE"+JOB_TITLE+" - "+ String.valueOf(file));
-            }
-            if(storeParameter.get(file).equals("ADDRESS")){
-                ADDRESS+=" " +StoreValues.get(file).toString();
-                Log.d("getData","ADDRESS "+ADDRESS+" - "+ String.valueOf(file));
-            }
-            if(storeParameter.get(file).equals("URL")){
-                IM_PROTOCOL+=" " +StoreValues.get(file).toString();
-                Log.d("getData","IM_PROTOCOL "+IM_PROTOCOL+" - "+ String.valueOf(file));
-            }
-            if(storeParameter.get(file).equals("OTHERs")){
-                DATA+=" " +StoreValues.get(file).toString();
-                Log.d("getData","DATA "+DATA+" - "+ String.valueOf(file));
-            }
-        }
+
         intent = new Intent(ContactsContract.Intents.Insert.ACTION);
         intent.setType(ContactsContract.RawContacts.CONTENT_TYPE);
         intent.putExtra(ContactsContract.Intents.Insert.NAME, NAME)//insert name of person
@@ -433,15 +405,15 @@ public class MainActivity extends AppCompatActivity implements AdapterView.OnIte
               .putExtra(ContactsContract.Intents.Insert.COMPANY, COMPANY)//insert name of person
               .putExtra(ContactsContract.Intents.Insert.JOB_TITLE, JOB_TITLE)//insert name of person
               .putExtra(ContactsContract.Intents.Insert.POSTAL, ADDRESS)//insert name of person
-              .putExtra(ContactsContract.Intents.Insert.IM_PROTOCOL,IM_PROTOCOL)//insert name of person
+              .putExtra(ContactsContract.CommonDataKinds.Website.CONTENT_ITEM_TYPE, WEBADDRESS)//insert name of person
               .putExtra(ContactsContract.Intents.Insert.DATA, DATA);//insert name of person
             if (intent.resolveActivity(getPackageManager()) != null) {
                 startActivity(intent);
             }else {
-                Something_went_wrong("Unable to start service Intent");
+                Something_went_wrong("Unable to start Intent service");
             }
         }else {
-            Something_went_wrong("Sorry, we could not find any text in your image");
+            Something_went_wrong("Sorry, unable to process !");
         }
     }
 
@@ -567,10 +539,6 @@ public class MainActivity extends AppCompatActivity implements AdapterView.OnIte
             BitmapDrawable drawable = (BitmapDrawable) ImageView.getDrawable();
             bitmap = drawable.getBitmap();
             OCRTextContainer.removeAllViews();
-            StoreValues.clear();
-            storeParameter.clear();
-            id=0;
-
             progressDialog.setMessage("Extracting...");
             progressDialog.show();
         }
@@ -600,4 +568,5 @@ public class MainActivity extends AppCompatActivity implements AdapterView.OnIte
             }
         }
     }
+
 }

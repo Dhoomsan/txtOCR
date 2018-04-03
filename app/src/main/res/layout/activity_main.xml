@@ -9,8 +9,8 @@
     android:background="@android:color/white">
 
     <de.hdodenhof.circleimageview.CircleImageView
-        android:layout_width="100dp"
-        android:layout_height="100dp"
+        android:layout_width="50dp"
+        android:layout_height="50dp"
         android:id="@+id/ImageView"
         android:layout_gravity="center_horizontal"
         android:layout_centerInParent="true"
