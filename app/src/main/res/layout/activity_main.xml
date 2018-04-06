@@ -20,7 +20,6 @@
         app:civ_border_color="@color/colorAccent"
         app:civ_border_width="1dp"
         android:padding="2dp"/>
-
     <LinearLayout
         android:layout_below="@+id/ImageView"
         android:layout_above="@+id/footer"
@@ -31,6 +30,7 @@
             android:layout_width="match_parent"
             android:layout_height="1dp"
             android:background="@color/colorAccent"/>
+
         <ScrollView
             android:layout_width="match_parent"
             android:layout_height="match_parent"
@@ -44,19 +44,18 @@
                 android:paddingLeft="5dp"
                 android:paddingRight="5dp">
 
-                <TextView
-                    android:id="@+id/notice"
-                    android:layout_width="match_parent"
-                    android:layout_height="match_parent"
-                    android:gravity="center"
-                    android:text="@string/notice"
-                    android:textAlignment="center"/>
-
             </LinearLayout>
         </ScrollView>
 
     </LinearLayout>
-
+    <TextView
+        android:id="@+id/notice"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:layout_centerInParent="true"
+        android:gravity="center"
+        android:text="@string/notice"
+        android:textAlignment="center"/>
     <LinearLayout
         android:id="@id/footer"
         android:layout_width="match_parent"
@@ -82,5 +81,19 @@
             android:padding="2dp"/>
 
     </LinearLayout>
+
+    <de.hdodenhof.circleimageview.CircleImageView
+        android:layout_width="30dp"
+        android:layout_height="30dp"
+        android:id="@+id/AddLayout"
+        android:layout_gravity="right"
+        android:layout_alignParentEnd="true"
+        android:layout_alignParentTop="true"
+        android:src="@drawable/ic_add_button"
+        android:onClick="Add_Layout"
+        app:civ_border_color="@color/colorAccent"
+        app:civ_border_width="1dp"
+        android:layout_marginTop="20dp"
+        android:layout_alignParentRight="true" />
 
 </RelativeLayout>

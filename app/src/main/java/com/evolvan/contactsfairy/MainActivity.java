@@ -11,15 +11,21 @@ import android.content.pm.PackageManager;
 import android.content.res.AssetManager;
 import android.graphics.Bitmap;
 import android.graphics.Color;
+import android.graphics.Rect;
 import android.graphics.drawable.BitmapDrawable;
 import android.graphics.drawable.ColorDrawable;
 import android.net.Uri;
 import android.os.AsyncTask;
+import android.os.Environment;
 import android.provider.ContactsContract;
+import android.provider.Settings;
+import android.support.v4.app.ActivityCompat;
+import android.support.v4.content.ContextCompat;
 import android.support.v7.app.ActionBar;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
-import android.util.Patterns;
+import android.text.TextUtils;
+import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.Menu;
 import android.view.MenuItem;
@@ -40,6 +46,7 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.io.OutputStreamWriter;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import de.hdodenhof.circleimageview.CircleImageView;
@@ -53,22 +60,10 @@ import static android.Manifest.permission.WRITE_SETTINGS;
 
 public class MainActivity extends AppCompatActivity{
 
-    private ProgressDialog progressDialog;
-    String[] Parameter = { "SELECT","NAME", "PHONE", "EMAIL", "COMPANY" ,"JOB_TITLE", "ADDRESS","URL"};
-    private static final int TIME_DELAY = 2000;
-    private static long back_pressed;
-    Intent intent;
-    Bitmap bitmap;
-    private TessBaseAPI tessBaseAPI;
-    String datapath = "",getAppName,language = "eng",OCRresult="";
-    LinearLayout OCRTextContainer;
-    TextView notice;
-    EditText edittext;
-    ImageView remove;
-    CircleImageView ImageView;
-    ArrayAdapter spinnerArrayAdapter;
-    private Menu menu;
-    private Uri mCropImageUri;
+    String[] Parameter = { "SELECT","NAME", "PHONE", "EMAIL", "COMPANY" ,"JOB_TITLE", "ADDRESS","URL"}; String datapath = "",getAppName,language = "eng";
+    private static final int TIME_DELAY = 2000; private static final int PERMISSION_REQUEST_CODE = 200; private static long back_pressed;  private TessBaseAPI tessBaseAPI;
+    Intent intent;  Bitmap bitmap; LinearLayout OCRTextContainer; TextView notice; CircleImageView ImageView; private Menu menu; private Uri mCropImageUri;  private ProgressDialog progressDialog;
+    ImageExtracting imageExtracting;
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -79,18 +74,15 @@ public class MainActivity extends AppCompatActivity{
         getSupportActionBar().setIcon(R.mipmap.ic_launcher);
         getSupportActionBar().setDisplayUseLogoEnabled(true);
 
-
         progressDialog = new ProgressDialog(this);
 
         getAppName=getString(R.string.app_name);
         ImageView =(CircleImageView)findViewById(R.id.ImageView);
         notice=(TextView)findViewById(R.id.notice);
         OCRTextContainer = (LinearLayout) findViewById(R.id.OCRTextContainer);
-        //initialize Tesseract API
-        datapath = getFilesDir()+ "/tesseract/";
-        tessBaseAPI = new TessBaseAPI();
-        checkFile(new File(datapath + "tessdata/"));
-        tessBaseAPI.init(datapath, language);
+
+        imageExtracting=new ImageExtracting();
+
     }
 
     //restrict application to close on back press
@@ -99,14 +91,32 @@ public class MainActivity extends AppCompatActivity{
         if (back_pressed + TIME_DELAY > System.currentTimeMillis()) {
             super.onBackPressed();
         } else {
-            Toast.makeText(getBaseContext(), "Press once again to exit!", Toast.LENGTH_SHORT).show();
+            Something_went_wrong("Press once again to exit!");
         }
         back_pressed = System.currentTimeMillis();
     }
 
     // open camera to take picture for ocr
     public void Choose_Image_Camera(View view){
-        CropImage.startPickImageActivity(this);
+        if(checkPermission()) {
+            CropImage.startPickImageActivity(this);
+        }
+        else {
+            requestPermission();
+        }
+    }
+
+    //request runtime permission
+    private void requestPermission() {
+        ActivityCompat.requestPermissions(this, new String[]{WRITE_EXTERNAL_STORAGE, CAMERA}, PERMISSION_REQUEST_CODE);
+    }
+
+    //check prermission
+    private boolean checkPermission() {
+        int result = ContextCompat.checkSelfPermission(getApplicationContext(), WRITE_EXTERNAL_STORAGE);
+        int result1 = ContextCompat.checkSelfPermission(getApplicationContext(), CAMERA);
+
+        return result == PackageManager.PERMISSION_GRANTED && result1 == PackageManager.PERMISSION_GRANTED;
     }
 
     //check result after redirecting  image crop ot select from gallery
@@ -134,22 +144,50 @@ public class MainActivity extends AppCompatActivity{
             CropImage.ActivityResult result = CropImage.getActivityResult(data);
             if (resultCode == RESULT_OK) {
                 ((ImageView) findViewById(R.id.ImageView)).setImageURI(result.getUri());
-                new ImageExtracting().execute("");
+
+                    new ImageExtracting().execute("");
+
             } else if (resultCode == CropImage.CROP_IMAGE_ACTIVITY_RESULT_ERROR_CODE) {
-                Toast.makeText(this, "Cropping failed: " + result.getError(), Toast.LENGTH_LONG).show();
+                Something_went_wrong("\"Cropping failed: " + result.getError());
             }
         }
     }
 
+    //requestPermission call back result
     @Override
     public void onRequestPermissionsResult(int requestCode, String permissions[], int[] grantResults) {
         if (mCropImageUri != null && grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
             // required permissions granted, start crop image activity
             startCropImageActivity(mCropImageUri);
         }
-        else {
-            Toast.makeText(this, "Cancelling, required permissions are not granted", Toast.LENGTH_LONG).show();
+        else if(requestCode==PERMISSION_REQUEST_CODE && grantResults[0]==PackageManager.PERMISSION_GRANTED && grantResults[1]==PackageManager.PERMISSION_GRANTED){
+            CropImage.startPickImageActivity(this);
         }
+        else {
+            permissionAlert();
+        }
+    }
+
+    //show permission alert
+    public void permissionAlert() {
+        AlertDialog.Builder builder = new AlertDialog.Builder(MainActivity.this)
+                .setMessage("Need permission to read text.")
+                .setCancelable(false)
+                .setPositiveButton("Yes", new DialogInterface.OnClickListener() {
+                    public void onClick(DialogInterface dialog, int id) {
+                        requestPermission();
+                    }
+                })
+                .setNegativeButton("No", new DialogInterface.OnClickListener() {
+                    public void onClick(DialogInterface dialog, int id) {
+                        Something_went_wrong("Cancelling, required permissions are not granted");
+                        dialog.cancel();
+                    }
+                });
+        AlertDialog alert = builder.create();
+        alert.setIcon(R.mipmap.ic_launcher);// dialog  Icon
+        alert.setTitle("Permission necessary"); // dialog  Title
+        alert.show();
     }
 
     /**
@@ -161,53 +199,40 @@ public class MainActivity extends AppCompatActivity{
 
     //data validation while parsing
     public void validation(String s){
-        if(specialCharacter(s))
-        {
 
-        }
         //validate NAME from string 1
-        else if(!checkName(s).isEmpty()){
-
+        if(!checkName(s).isEmpty()){
             createDynamicLayout(s,1);
-        }
-        //validate PHONE from string  2
-        else if(!checkNumber(s).isEmpty()){
-            createDynamicLayout(s,2);
-        }
-        //validate EMAIL from string 3
-        else if (!checkEmail(s).isEmpty()){
-            createDynamicLayout(s,3);
-        }
-        //validate COMPANY from string 4
-        else if (!checkCompany(s).isEmpty()){
-            createDynamicLayout(s,4);
         }
         //validate JOB_TITLE from string 5
         else if (!checkJobTitle(s).isEmpty()){
             createDynamicLayout(s,5);
         }
+        //validate PHONE from string  2
+        else if(!checkNumber(s).isEmpty()){
+            createDynamicLayout(checkNumber(s),2);
+        }
+        //validate EMAIL from string 3
+        else if (!checkEmail(s).isEmpty()){
+            createDynamicLayout(checkEmail(s),3);
+        }
+        //validate COMPANY from string 4
+        else if (!checkCompany(s).isEmpty()){
+            createDynamicLayout(s,4);
+        }
+
         //validate POSTAL from string 6
         else if (!checkPostal(s).isEmpty()){
             createDynamicLayout(s,6);
         }
         //validate URL from string 7
         else if (!checkUrl(s).isEmpty()){
-            createDynamicLayout(s,7);
+            createDynamicLayout(checkUrl(s),7);
         }
         //validate not Validate from string  0
         else {
             createDynamicLayout(s, 0);
         }
-    }
-
-    //special character more than 3
-    public boolean specialCharacter(String s){
-        String FINAL_CHAR_REGEX = "[!#$%^&*()[\\\\]|;'/{}\\\\\\\\:\\\"<>?]";
-        int specialCharCount = s.split(FINAL_CHAR_REGEX, -1).length - 1;
-        if(specialCharCount>3){
-            return true;
-        }
-        return false;
     }
 
     //validate NAME from string 1
@@ -231,31 +256,24 @@ public class MainActivity extends AppCompatActivity{
 
     //validate PHONE from string  2
     public String checkNumber(String s){
-        int count = 0;
-        for (int i = 0, len = s.length(); i < len; i++) {
-            if (Character.isDigit(s.charAt(i))) {
-                count++;
-            }
-        }
-        if(count>=7) {
-            return s;
+        s=s.replaceAll("[^+A-Za-z0-9\\s]+","");
+        Pattern pattern = Pattern.compile("[\\d]{10,11}");
+        Matcher matcher = pattern.matcher(s);
+        while (matcher.find()) {
+            //return matcher.group();
+            return  s;
         }
         return "";
     }
 
     //validate EMAIL from string 3
     public String checkEmail(String s){
-        for(String email:s.split(" ")){
-            String EMAIL_PATTERN = "^[_A-Za-z0-9-\\\\+]+(\\\\.[_A-Za-z0-9-]+)*@[A-Za-z0-9-]+(\\\\.[A-Za-z0-9]+)*(\\\\.[A-Za-z]{2,})$";
-            Matcher EmailMatcher =  Pattern.compile(EMAIL_PATTERN).matcher(s);
-            if(EmailMatcher.find()){
-                return s;
-            }
-            else if(Patterns.EMAIL_ADDRESS.matcher(email).matches()) {
-                return s;
-            }else if(s.contains("@")){
-                return s;
-            }
+        String regex = "^[a-zA-Z0-9_!#$%&'*+/=?`{|}~^.-]+@[a-zA-Z0-9.-]+$";
+        Pattern pattern = Pattern.compile(regex);
+        for(String email : s.split(" ")){
+            Matcher matcher = pattern.matcher(email);
+            if(matcher.matches())
+                return email;
         }
 
         return  "";
@@ -301,34 +319,45 @@ public class MainActivity extends AppCompatActivity{
 
     //validate URL from string 7
     public String checkUrl(String s) {
-        if((s.contains("https")|| s.contains("www")) || (!s.contains("@") && !s.contains("&") && !s.contains(",") && !s.contains("/") && s.contains(".") )){
-            return s;
+        for(String email : s.split(" ")){
+            if(email.contains("www.") && !email.contains("@"))
+                return  s;
         }
         return  "";
     }
 
+    //add manual layoyt
+    public void Add_Layout(View Add_Layout){
+        createDynamicLayout("Enter...", 0);
+    }
+
    //show output in dynamic layout
    public void createDynamicLayout(String s, int i){
-        LayoutInflater layoutInflater = (LayoutInflater) getBaseContext().getSystemService(Context.LAYOUT_INFLATER_SERVICE);
-        final View addView = layoutInflater.inflate(R.layout.display_layout, null);
-        Spinner spinner=(Spinner)addView.findViewById(R.id.spinner_id);
-        edittext=(EditText)addView.findViewById(R.id.edittext);
+       if(s.length()>2 && !s.isEmpty()) {
+           MenuVisible();
 
-       spinnerArrayAdapter = new ArrayAdapter<String>(this,R.layout.custom_textview_to_spinner, Parameter);
-        spinnerArrayAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
-        spinner.setAdapter(spinnerArrayAdapter);
-        spinner.setSelection(i);
+           LayoutInflater layoutInflater = (LayoutInflater) getBaseContext().getSystemService(Context.LAYOUT_INFLATER_SERVICE);
+           final View addView = layoutInflater.inflate(R.layout.display_layout, null);
+           Spinner spinner = (Spinner) addView.findViewById(R.id.spinner_id);
+           EditText edittext = (EditText) addView.findViewById(R.id.edittext);
 
-        edittext.setText(s);
+           ArrayAdapter spinnerArrayAdapter = new ArrayAdapter<String>(this, R.layout.custom_textview_to_spinner, Parameter);
+           spinnerArrayAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+           spinner.setAdapter(spinnerArrayAdapter);
+           spinner.setSelection(i);
 
-        remove=(ImageView)addView.findViewById(R.id.remove);
-        remove.setOnClickListener(new View.OnClickListener(){
-            @Override
-            public void onClick(View v) {
-                showAlert(addView);
-            }});
+           edittext.setText(s);
 
-        OCRTextContainer.addView(addView, 0);
+           ImageView remove = (ImageView) addView.findViewById(R.id.remove);
+           remove.setOnClickListener(new View.OnClickListener() {
+               @Override
+               public void onClick(View v) {
+                   showAlert(addView);
+               }
+           });
+
+           OCRTextContainer.addView(addView, 0);
+       }
 
     }
 
@@ -340,6 +369,8 @@ public class MainActivity extends AppCompatActivity{
                 .setPositiveButton("Yes", new DialogInterface.OnClickListener() {
                     public void onClick(DialogInterface dialog, int id) {
                         ((LinearLayout)addView.getParent()).removeView(addView);
+
+                        MenuGone();
                     }
                 })
                 .setNegativeButton("No", new DialogInterface.OnClickListener() {
@@ -500,8 +531,119 @@ public class MainActivity extends AppCompatActivity{
                 Add_Data_In_Contacts_List();
                 break;
             }
+            case R.id.action_save:{
+                if(checkPermission()) {
+                    Save_as_txt();
+                }
+                else {
+                    requestPermission();
+                }
+                break;
+            }
+            case R.id.action_Refresh:{
+                if(checkBitMap()){
+                    new ImageExtracting().execute("");
+                }
+                else {
+                    Something_went_wrong("");
+                }
+                break;
+            }
+            default:
+                Something_went_wrong("");
         }
         return super.onOptionsItemSelected(item);
+    }
+
+    //save extract text.txt
+    public void Save_as_txt(){
+        String str="";
+        String DNAME = getString(R.string.app_name);
+        final File extStore =new File( Environment.getExternalStorageDirectory(), DNAME);
+        // ==> /storage/emulated/0/note.txt
+        final EditText fileName = new EditText(this);
+        AlertDialog.Builder ad = new AlertDialog.Builder(this);
+        ad.setView(fileName);
+        ad.setMessage("Write file name");
+        int childCount = OCRTextContainer.getChildCount();
+        if(childCount>0) {
+
+            for (int c = 0; c < childCount; c++) {
+
+                View childView = OCRTextContainer.getChildAt(c);
+
+                EditText childTextView = (EditText) (childView.findViewById(R.id.edittext));
+                Spinner spinner=(Spinner)(childView.findViewById(R.id.spinner_id));
+                String setValues = childTextView.getText().toString().trim();
+                String setParameter = (String)(spinner.getSelectedItem());
+
+                str +="\n" +setParameter+" -: "+setValues;
+            }
+        }
+        if (TextUtils.isEmpty(str)) {
+            Something_went_wrong("No data to Save");
+        } else {
+            final String finalStr = str;
+            ad.setPositiveButton("Save", new DialogInterface.OnClickListener() {
+                @Override
+                public void onClick(DialogInterface dialog, int which) {
+                    if(!extStore.exists()) {
+                        extStore.mkdirs();
+                    }
+                    String path = extStore.getAbsolutePath() + "/" + fileName.getText().toString() + ".txt";
+                    try {
+                        File myFile = new File(path);
+                        myFile.createNewFile();
+                        FileOutputStream fOut = new FileOutputStream(myFile);
+                        OutputStreamWriter myOutWriter = new OutputStreamWriter(fOut);
+                        myOutWriter.append(finalStr);
+                        myOutWriter.close();
+                        fOut.close();
+                        Something_went_wrong("Saved");
+                    } catch (Exception e) {
+                        createNetErrorDialog();
+                    }
+                }
+            });
+
+            ad.setNegativeButton("Cancel", new DialogInterface.OnClickListener() {
+                @Override
+                public void onClick(DialogInterface dialog, int which) {
+                    dialog.cancel();
+                }
+            });
+
+            ad.show();
+        }
+
+    }
+
+    //storage error
+    protected void createNetErrorDialog() {
+        AlertDialog.Builder builder = new AlertDialog.Builder(this);
+        builder.setMessage("Go to"+"\n"+"Settings->Tap'Apps'->Choose App"+"\n"+"->App Permissions"+"\n"+"Enable it")
+                .setTitle("storage or File not Exist!")
+                .setCancelable(false)
+                .setPositiveButton("Open",
+                        new DialogInterface.OnClickListener() {
+                            public void onClick(DialogInterface dialog, int id) {
+                                Intent intent = new Intent();
+                                intent.setAction(Settings.ACTION_APPLICATION_DETAILS_SETTINGS);
+                                Uri uri = Uri.fromParts("package", getApplicationContext().getPackageName(), null);
+                                intent.setData(uri);
+                                startActivity(intent);
+                            }
+                        }
+                )
+                .setNegativeButton("Cancel",
+                        new DialogInterface.OnClickListener() {
+                            public void onClick(DialogInterface dialog, int id) {
+                                dialog.cancel();
+                            }
+                        }
+                );
+        AlertDialog alert = builder.create();
+        alert.show();
     }
 
     //on click imageview get image large/zoom
@@ -517,6 +659,7 @@ public class MainActivity extends AppCompatActivity{
             alertDialog.getWindow().setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT));
             ImageView zoom_image = (ImageView) zoomImage.findViewById(R.id.zoom_image);
             zoom_image.setImageBitmap(bitmap);
+
             ImageView ButtonCancel = (ImageView) zoomImage.findViewById(R.id.ButtonCancel);
             ButtonCancel.setOnClickListener(new View.OnClickListener() {
                 @Override
@@ -527,7 +670,7 @@ public class MainActivity extends AppCompatActivity{
             alertDialog.show();
         }
         else {
-            CropImage.startPickImageActivity(this);
+            Choose_Image_Camera(zoomImage);
         }
     }
 
@@ -540,13 +683,37 @@ public class MainActivity extends AppCompatActivity{
 
     //extract image in background
     private class ImageExtracting extends AsyncTask<Object, Object, String[]> {
+        String OCRresult=null;
         String[] str=null;
+        Boolean cancel=true;
+
         @Override
         protected void onPreExecute() {
             BitmapDrawable drawable = (BitmapDrawable) ImageView.getDrawable();
             bitmap = drawable.getBitmap();
+            //initialize Tesseract API
+            datapath = getFilesDir()+ "/tesseract/";
+            tessBaseAPI = new TessBaseAPI();
+            tessBaseAPI.setDebug(true);
+            checkFile(new File(datapath + "tessdata/"));
+            tessBaseAPI.init(datapath, language);
+            //tessBaseAPI.setPageSegMode(TessBaseAPI.PageSegMode.PSM_SINGLE_BLOCK);
+            tessBaseAPI.setPageSegMode(TessBaseAPI.PageSegMode.PSM_SINGLE_COLUMN);//ok
+
             OCRTextContainer.removeAllViews();
-            progressDialog.setMessage("Extracting...");
+            progressDialog.setMessage("Processing, please wait.\n" + "An image with a lot of text can require some time.");
+            progressDialog.setCancelable(false);
+            progressDialog.setButton("Cancel", new DialogInterface.OnClickListener() {
+
+                @Override
+                public void onClick(DialogInterface dialog, int which) {
+                    notice.setVisibility(View.VISIBLE);
+                    notice.setText("Sorry, we could not find any text in your image.");
+                    imageExtracting.cancel(true);
+                    cancel=false;
+                    progressDialog.dismiss();
+                }
+            });
             progressDialog.show();
         }
         @Override
@@ -554,26 +721,65 @@ public class MainActivity extends AppCompatActivity{
 
             tessBaseAPI.setImage(bitmap);
             OCRresult = tessBaseAPI.getUTF8Text();
+            Log.d("getData",OCRresult);
+            OCRresult=OCRresult.replaceAll("[^a-zA-Z0-9\\s.#:+,@-]+","");
             str = OCRresult.split("\n");
+            tessBaseAPI.end();
 
             return str;
         }
         @Override
         protected void onPostExecute(String[] result) {
-
-            if(result.length!=0){
+            if(result.length!=0 && cancel){
+                notice.setText("");
                 notice.setVisibility(View.GONE);
                 for(int i=result.length-1;i>=0;i--) {
-                    if((result[i].trim().length() > 0) || (!result[i].isEmpty())) {
-                        String s=result[i];
-                        validation(s);
+                    if(((result[i].trim().length() > 2) || (!result[i].isEmpty()))) {
+                        validation(result[i]);
                     }
                 }
-                progressDialog.dismiss();
-                MenuItem item = menu.findItem(R.id.action_create);
-                item.setVisible(true);
+                if(progressDialog!=null) {
+                    progressDialog.dismiss();
+                    imageExtracting.cancel(true);
+                    MenuVisible();
+                }
             }
         }
     }
 
+    public void MenuVisible(){
+        Log.d("getMenu","open");
+
+        if(!menu.hasVisibleItems()) {
+            menu.getItem(0).setVisible(true);
+            menu.getItem(1).setVisible(true);
+            if(checkBitMap()) {
+                menu.getItem(2).setVisible(true);
+            }
+            noticeGone();
+        }
+    }
+
+    public void MenuGone(){
+        Log.d("getMenu","close");
+        if(menu.hasVisibleItems() && OCRTextContainer.getChildCount()==0) {
+            menu.getItem(0).setVisible(false);
+            menu.getItem(1).setVisible(false);
+            menu.getItem(2).setVisible(false);
+            noticeVisible();
+            if(checkBitMap()){
+                menu.getItem(2).setVisible(true);
+            }
+        }
+    }
+
+    public void noticeVisible(){
+        if(notice.getVisibility() == View.GONE)
+            notice.setVisibility(View.VISIBLE);
+    }
+
+    public void noticeGone(){
+        if(notice.getVisibility() == View.VISIBLE)
+            notice.setVisibility(View.GONE);
+    }
 }
