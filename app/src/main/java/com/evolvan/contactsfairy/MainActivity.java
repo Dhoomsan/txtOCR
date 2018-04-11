@@ -11,7 +11,6 @@ import android.content.pm.PackageManager;
 import android.content.res.AssetManager;
 import android.graphics.Bitmap;
 import android.graphics.Color;
-import android.graphics.Rect;
 import android.graphics.drawable.BitmapDrawable;
 import android.graphics.drawable.ColorDrawable;
 import android.net.Uri;
@@ -26,6 +25,7 @@ import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
 import android.text.TextUtils;
 import android.util.Log;
+import android.util.Patterns;
 import android.view.LayoutInflater;
 import android.view.Menu;
 import android.view.MenuItem;
@@ -50,8 +50,9 @@ import java.io.OutputStreamWriter;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import de.hdodenhof.circleimageview.CircleImageView;
-
+//requered permissions
 import static android.Manifest.permission.CAMERA;
+import static android.Manifest.permission.MANAGE_DOCUMENTS;
 import static android.Manifest.permission.READ_CONTACTS;
 import static android.Manifest.permission.READ_EXTERNAL_STORAGE;
 import static android.Manifest.permission.WRITE_CONTACTS;
@@ -132,6 +133,7 @@ public class MainActivity extends AppCompatActivity{
             if (CropImage.isReadExternalStoragePermissionsRequired(this, imageUri)) {
                 // request permissions and handle the result in onRequestPermissionsResult()
                 mCropImageUri = imageUri;
+
                 requestPermissions(new String[]{READ_EXTERNAL_STORAGE,WRITE_EXTERNAL_STORAGE,CAMERA,READ_CONTACTS,WRITE_CONTACTS,WRITE_SETTINGS}, 0);
             } else {
                 // no permissions required or already grunted, can start crop image activity
@@ -142,10 +144,18 @@ public class MainActivity extends AppCompatActivity{
         // handle result of CropImageActivity
         if (requestCode == CropImage.CROP_IMAGE_ACTIVITY_REQUEST_CODE) {
             CropImage.ActivityResult result = CropImage.getActivityResult(data);
+            Log.d("cropData","crop"+result);
             if (resultCode == RESULT_OK) {
                 ((ImageView) findViewById(R.id.ImageView)).setImageURI(result.getUri());
 
+                BitmapDrawable drawable = (BitmapDrawable) ImageView.getDrawable();
+                bitmap = drawable.getBitmap();
+                if(checkBitMap()) {
                     new ImageExtracting().execute("");
+                }
+                else {
+                    Something_went_wrong("");
+                }
 
             } else if (resultCode == CropImage.CROP_IMAGE_ACTIVITY_RESULT_ERROR_CODE) {
                 Something_went_wrong("\"Cropping failed: " + result.getError());
@@ -198,132 +208,85 @@ public class MainActivity extends AppCompatActivity{
     }
 
     //data validation while parsing
-    public void validation(String s){
+    public void validation(String strValidate){
+        String str="",strAdd="";
 
-        //validate NAME from string 1
-        if(!checkName(s).isEmpty()){
-            createDynamicLayout(s,1);
-        }
-        //validate JOB_TITLE from string 5
-        else if (!checkJobTitle(s).isEmpty()){
-            createDynamicLayout(s,5);
-        }
-        //validate PHONE from string  2
-        else if(!checkNumber(s).isEmpty()){
-            createDynamicLayout(checkNumber(s),2);
-        }
-        //validate EMAIL from string 3
-        else if (!checkEmail(s).isEmpty()){
-            createDynamicLayout(checkEmail(s),3);
-        }
-        //validate COMPANY from string 4
-        else if (!checkCompany(s).isEmpty()){
-            createDynamicLayout(s,4);
-        }
-
-        //validate POSTAL from string 6
-        else if (!checkPostal(s).isEmpty()){
-            createDynamicLayout(s,6);
-        }
-        //validate URL from string 7
-        else if (!checkUrl(s).isEmpty()){
-            createDynamicLayout(checkUrl(s),7);
-        }
-        //validate not Validate from string  0
-        else {
-            createDynamicLayout(s, 0);
-        }
-    }
-
-    //validate NAME from string 1
-    public String checkName(String s){
-        Pattern p = Pattern.compile("[^a-z0-9 ]", Pattern.CASE_INSENSITIVE);
-        Matcher m = p.matcher(s);
-        boolean b = m.find();
-        if (!b) {
-            int count = 0;
-            for (int i = 0, len = s.length(); i < len; i++) {
-                if (Character.isUpperCase(s.codePointAt(0))) {
-                    count++;
-                }
-            }
-            if (count >=1) {
-                return s;
-            }
-        }
-        return "";
-    }
-
-    //validate PHONE from string  2
-    public String checkNumber(String s){
-        s=s.replaceAll("[^+A-Za-z0-9\\s]+","");
-        Pattern pattern = Pattern.compile("[\\d]{10,11}");
-        Matcher matcher = pattern.matcher(s);
-        while (matcher.find()) {
-            //return matcher.group();
-            return  s;
-        }
-        return "";
-    }
-
-    //validate EMAIL from string 3
-    public String checkEmail(String s){
-        String regex = "^[a-zA-Z0-9_!#$%&'*+/=?`{|}~^.-]+@[a-zA-Z0-9.-]+$";
-        Pattern pattern = Pattern.compile(regex);
-        for(String email : s.split(" ")){
-            Matcher matcher = pattern.matcher(email);
-            if(matcher.matches())
-                return email;
-        }
-
-        return  "";
-    }
-
-    //validate COMPANY from string 4
-    public String checkCompany(String s){
-        if(!s.contains(".")&& !s.contains("'") && !s.contains(",")&& !s.matches("-?\\d+")) {
-            String[] arr = s.split(" ");
-            if (arr.length != 1) {
-                for (int i = 0; i < s.length(); i++) {
-                    if (Character.isUpperCase(s.codePointAt(0))) {
-                        return s;
+        for (String name:strValidate.split("\n")){
+            String FINAL_CHAR_REGEX = "[!#$%^&*()[\\\\]|;'/{}\\\\\\\\:\\\"<>?]";
+            int specialCharCount = name.split(FINAL_CHAR_REGEX, -1).length - 1;
+            if(specialCharCount==0) {
+                Pattern p = Pattern.compile("[^a-z0-9 ]", Pattern.CASE_INSENSITIVE);
+                Matcher m = p.matcher(name);
+                boolean b = m.find();
+                if (!b) {
+                    int count = 0;
+                    for (int i = 0, len = name.length(); i < len; i++) {
+                        if (Character.isUpperCase(name.codePointAt(0))) {
+                            count++;
+                        }
+                    }
+                    if (count >= 1) {
+                        strValidate = strValidate.replaceAll("\\w*" + name + "\\w*", "").trim();
+                        createDynamicLayout(name, 1);
+                        break;
                     }
                 }
             }
         }
-        return  "";
-    }
 
-    //validate JOB_TITLE from string 5
-    public String checkJobTitle(String s){
-        int specialCharCount = s.split("“", -1).length - 1;
-        int specialCharCount1 = s.split("”", -1).length - 1;
-        if(specialCharCount>0 || specialCharCount1>0){
-            return s;
-        }
-        return "";
-    }
-
-    //validate POSTAL from string 6
-    public String checkPostal(String s){
-        if(s.contains(",")) {
-            String FINAL_CHAR_REGEX = "[!#$%^&*()[\\\\]|;'/{}\\\\\\\\:\\\"<>?]";
-            Matcher EmailMatcher = Pattern.compile(FINAL_CHAR_REGEX).matcher(s);
-            if (!EmailMatcher.find()) {
-                return s;
+        str=strValidate.replaceAll("[^+A-Za-z0-9\\s]+","");
+        for(String number : str.split("\n")) {
+            Pattern patternNumber = Pattern.compile("[\\d]{10,11}");
+            Matcher matcherNumber = patternNumber.matcher(number);
+            while (matcherNumber.find()) {
+                strValidate = strValidate.replaceAll("\\w*" + matcherNumber.group() + "\\w*", "").trim();
+                createDynamicLayout(matcherNumber.group(), 2);
             }
         }
 
-        return  "";
-    }
-
-    //validate URL from string 7
-    public String checkUrl(String s) {
-        for(String email : s.split(" ")){
-            if(email.contains("www.") && !email.contains("@"))
-                return  s;
+        for(String email : strValidate.split("\n")){
+            Matcher matcherEmail = Patterns.EMAIL_ADDRESS.matcher(email);
+            while (matcherEmail.find()) {
+                strValidate=strValidate.replaceAll("\\w*"+matcherEmail.group()+"\\w*", "").trim();
+                createDynamicLayout(matcherEmail.group(), 3);
+            }
         }
-        return  "";
+
+        for(String Url : strValidate.split(" ")){
+            if(!Url.contains("@")) {
+                Matcher matcherUrl = Patterns.WEB_URL.matcher(Url);
+                while (matcherUrl.find()) {
+                    strValidate=strValidate.replaceAll("\\w*"+matcherUrl.group()+"\\w*", "").trim();
+                    if(matcherUrl.group().equals(matcherUrl.group().toLowerCase())) {
+                        createDynamicLayout(matcherUrl.group(), 7);
+                    }
+                }
+            }
+        }
+
+        for(String company:strValidate.split("\n")){
+            String FINAL_CHAR_REGEX = "[!#$%^&*()[\\\\]|;'/{}\\\\\\\\:\\\"<>?]";
+            int specialCharCount = company.split(FINAL_CHAR_REGEX, -1).length - 1;
+            if(specialCharCount==0){
+                if (company.toUpperCase().equals(company) && company.trim().length()>4) {
+                    strValidate=strValidate.replaceAll("\\w*"+company+"\\w*", "").trim();
+                    createDynamicLayout(company, 4);
+                }
+            }
+
+        }
+
+        strAdd=strValidate.replaceAll("\\w*@\\w*", "").trim();
+        for(String Address : strAdd.split("\n")){
+            if(!Address.contains("@") && Address.length()>10) {
+                String regexAdd= "[a-zA-Z\\d\\s\\-\\,\\#\\.\\+]+";
+                Matcher matcherAdd = Pattern.compile(regexAdd).matcher(Address);
+                if (matcherAdd.find()) {
+                    createDynamicLayout(matcherAdd.group(), 6);
+                }
+            }
+        }
+
     }
 
     //add manual layoyt
@@ -356,7 +319,13 @@ public class MainActivity extends AppCompatActivity{
                }
            });
 
-           OCRTextContainer.addView(addView, 0);
+           OCRTextContainer.addView(addView, -1);
+       }
+       else  {
+           if(OCRTextContainer.getChildCount()==0) {
+               notice.setVisibility(View.VISIBLE);
+               notice.setText("Sorry, we could not find any text in your image.");
+           }
        }
 
     }
@@ -540,7 +509,7 @@ public class MainActivity extends AppCompatActivity{
                 }
                 break;
             }
-            case R.id.action_Refresh:{
+            /*case R.id.action_Refresh:{
                 if(checkBitMap()){
                     new ImageExtracting().execute("");
                 }
@@ -548,7 +517,7 @@ public class MainActivity extends AppCompatActivity{
                     Something_went_wrong("");
                 }
                 break;
-            }
+            }*/
             default:
                 Something_went_wrong("");
         }
@@ -682,15 +651,12 @@ public class MainActivity extends AppCompatActivity{
     }
 
     //extract image in background
-    private class ImageExtracting extends AsyncTask<Object, Object, String[]> {
+    private class ImageExtracting extends AsyncTask<Object, Object, String> {
         String OCRresult=null;
-        String[] str=null;
         Boolean cancel=true;
 
         @Override
         protected void onPreExecute() {
-            BitmapDrawable drawable = (BitmapDrawable) ImageView.getDrawable();
-            bitmap = drawable.getBitmap();
             //initialize Tesseract API
             datapath = getFilesDir()+ "/tesseract/";
             tessBaseAPI = new TessBaseAPI();
@@ -717,27 +683,20 @@ public class MainActivity extends AppCompatActivity{
             progressDialog.show();
         }
         @Override
-        protected String[] doInBackground(Object... params) {
-
+        protected String doInBackground(Object... params) {
             tessBaseAPI.setImage(bitmap);
             OCRresult = tessBaseAPI.getUTF8Text();
             Log.d("getData",OCRresult);
-            OCRresult=OCRresult.replaceAll("[^a-zA-Z0-9\\s.#:+,@-]+","");
-            str = OCRresult.split("\n");
             tessBaseAPI.end();
 
-            return str;
+            return OCRresult;
         }
         @Override
-        protected void onPostExecute(String[] result) {
-            if(result.length!=0 && cancel){
+        protected void onPostExecute(String result) {
+            if(result.length()!=0 && cancel){
                 notice.setText("");
                 notice.setVisibility(View.GONE);
-                for(int i=result.length-1;i>=0;i--) {
-                    if(((result[i].trim().length() > 2) || (!result[i].isEmpty()))) {
-                        validation(result[i]);
-                    }
-                }
+                validation(result);
                 if(progressDialog!=null) {
                     progressDialog.dismiss();
                     imageExtracting.cancel(true);
@@ -753,9 +712,9 @@ public class MainActivity extends AppCompatActivity{
         if(!menu.hasVisibleItems()) {
             menu.getItem(0).setVisible(true);
             menu.getItem(1).setVisible(true);
-            if(checkBitMap()) {
+            /*if(checkBitMap()) {
                 menu.getItem(2).setVisible(true);
-            }
+            }*/
             noticeGone();
         }
     }
@@ -765,11 +724,8 @@ public class MainActivity extends AppCompatActivity{
         if(menu.hasVisibleItems() && OCRTextContainer.getChildCount()==0) {
             menu.getItem(0).setVisible(false);
             menu.getItem(1).setVisible(false);
-            menu.getItem(2).setVisible(false);
-            noticeVisible();
-            if(checkBitMap()){
-                menu.getItem(2).setVisible(true);
-            }
+            /*menu.getItem(2).setVisible(false);
+*/            noticeVisible();
         }
     }
 
